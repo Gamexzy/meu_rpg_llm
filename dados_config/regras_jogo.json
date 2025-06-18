@@ -1,0 +1,45 @@
+{
+  "versao": "1.0",
+  "principios_gestao": {
+    "estrutura_acima_prosa": "A informação deve ser sempre estruturada (listas, tabelas, tags) para análise rápida.",
+    "fonte_unica_da_verdade": "Cada tipo de informação reside num único documento principal.",
+    "atualizacao_continua": "O Mestre é responsável por manter os documentos atualizados.",
+    "foco_na_relevancia": "A documentação deve servir ao jogo, omitindo detalhes sem impacto."
+  },
+  "sistemas_de_jogo": {
+    "evolucao_habilidades": {
+      "descricao": "Combina prática, estudo e reflexão narrativa.",
+      "tipos": {
+        "tecnicas": "Evoluem com uso prático, acelerado por reflexão.",
+        "cognitivas": "Evoluem com eventos marcantes, estudo e reflexão profunda."
+      }
+    },
+    "progressao_geral": {
+      "niveis": "1 a 5",
+      "subniveis": ["F", "D", "C", "B", "A"],
+      "catalisador": "A reflexão narrativa é o principal motor para subir de nível/subnível."
+    },
+    "sistema_conhecimento": {
+      "categorias": [
+        "Conhecimento de Mundo (Lore)",
+        "Conhecimento Técnico-Científico",
+        "Conhecimento Operacional"
+      ],
+      "niveis_proficiencia": {
+        "1": "Visão Geral",
+        "2": "Conhecimento Funcional",
+        "3": "Conhecimento Aprofundado/Especializado"
+      },
+      "aptidoes": "Conhecimento internalizado que se torna uma habilidade prática, geralmente de nível 3."
+    },
+    "sistema_memoria": {
+      "essencia": "A memória não esquece, mas consolida informações com base na relevância e reflexão.",
+      "niveis": {
+        "3": "Arquivo Bruto (Log de Eventos em FLE, a memória subconsciente).",
+        "2": "Memórias Consolidadas (Diário de bordo em prosa, a memória consciente).",
+        "1": "Log de Eventos (Resumo executivo dos factos)."
+      },
+      "fle_tags": ["data_estelar", "local", "personagens", "acao", "detalhes", "dialogo", "item", "emocao", "insight"]
+    }
+  }
+}
