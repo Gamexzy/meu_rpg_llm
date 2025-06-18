@@ -1,0 +1,46 @@
+[
+  {
+    "termo": "Aliança de Estações Orbitais",
+    "definicao": "Organização que padroniza calendários (UTC) e talvez outros protocolos entre as estações."
+  },
+  {
+    "termo": "Créditos de Estação",
+    "definicao": "A moeda padrão utilizada na Vigilância Solaris para bens, serviços e acesso a recursos. O sistema de créditos é dividido em:  \n  * **Créditos na Conta Principal**: Onde a maior parte dos créditos do indivíduo é armazenada de forma segura, acessível via terminais ou Datapad para transações maiores ou transferências.  \n  * **Créditos na Pulseira (IIP)**: Uma porção dos créditos que é transferida da conta principal para a Pulseira de Identificação Integrada (IIP). Estes créditos são para uso diário, como compras em refeitórios ou máquinas automáticas, e são deduzidos diretamente da pulseira. Ao transferir créditos para a pulseira, o saldo da Conta Principal diminui."
+  },
+  {
+    "termo": "Datapad",
+    "definicao": "Dispositivo eletrônico multifuncional, usado para acesso a mapas, informações e registro de dados/pensamentos."
+  },
+  {
+    "termo": "Equipe Beta",
+    "definicao": "Uma das três principais células operacionais da estação Vigilância Solaris. Atua como \"ponte\", responsável por coleta de dados, calibração, ajustes de sensores e testes em campo (dentro/fora da estação). Lida mais com o inesperado."
+  },
+  {
+    "termo": "FocusLink Mini",
+    "definicao": "Assistente pessoal portátil focado em produtividade e suporte técnico básico. Oferece timer, lembretes, rastreamento de tarefas, leitura básica de sensores ambientais, pequena IA para otimização de rotina e integração parcial com sistemas laboratoriais de entrada."
+  },
+  {
+    "termo": "UTC",
+    "definicao": "Coordinated Universal Time. Padrão de tempo terrestre adaptado pelas estações orbitais."
+  },
+  {
+    "termo": "Vigilância Solaris",
+    "definicao": "Estação orbital científica de médio porte, localizada na órbita baixa do planeta gasoso Ytaris-4. Centro de pesquisa atmosférica, monitoramento orbital e operações técnicas."
+  },
+  {
+    "termo": "Ytaris-4",
+    "definicao": "Planeta gasoso em órbita do qual a estação Vigilância Solaris está localizada. Apresenta padrões de nuvens turquesa e douradas."
+  },
+  {
+    "termo": "Quando Atualizar",
+    "definicao": "Este documento deve ser atualizado quando um novo termo importante do universo é introduzido na narrativa (seja por mim ou por você), e que ainda não está definido aqui. Ou, se a definição de um termo existente precisar ser expandida ou corrigida devido a novas revelações na história."
+  },
+  {
+    "termo": "Onde Atualizar",
+    "definicao": "Na seção \"Glossário de Termos do Universo\"."
+  },
+  {
+    "termo": "Como Atualizar",
+    "definicao": "Para adicionar ou modificar um termo, basta me informar o termo e sua definição. Eu me encarregarei de inseri-lo ou ajustá-lo na lista, mantendo a ordem alfabética para facilitar a consulta."
+  }
+]
