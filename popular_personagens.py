@@ -3,158 +3,122 @@ import json
 import re
 import os
 
-def populate_characters_and_skills(md_personagens_path, md_status_path):
+def clean_db_before_population(cursor, personagem_id):
+    """Limpa os dados antigos de um personagem antes de reinserir."""
+    cursor.execute("DELETE FROM inventario WHERE personagem_id = ?", (personagem_id,))
+    cursor.execute("DELETE FROM conhecimentos_aptidoes WHERE personagem_id = ?", (personagem_id,))
+    print(f"DEBUG: Dados antigos de inventário e conhecimentos para '{personagem_id}' foram limpos.")
+
+def parse_fle_file_to_dict(file_path):
     """
-    Script v2.0 para popular personagens e habilidades de documentos Markdown.
-    Utiliza uma abordagem de parsing baseada em regex otimizada para o Formato de Log Estruturado (FLE).
-    Este método é mais robusto para a estrutura de arquivo atual.
+    Lê um ficheiro .md formatado com FLE e converte as tags para um dicionário.
+    Tags duplicadas (como @conhecimento) são transformadas numa lista de valores.
+    """
+    data = {}
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except FileNotFoundError:
+        print(f"AVISO: Ficheiro '{file_path}' não encontrado.")
+        return data
+
+    # Regex para encontrar todas as tags @tag: valor
+    matches = re.findall(r'@(.+?):\s*([\s\S]+?)(?=\n@|\Z)', content)
+    for tag_raw, value_raw in matches:
+        tag = tag_raw.strip()
+        value = value_raw.strip()
+        if tag in data:
+            if not isinstance(data[tag], list):
+                data[tag] = [data[tag]]
+            data[tag].append(value)
+        else:
+            data[tag] = value
+    return data
+
+def populate_database(md_personagens_path, md_status_path):
+    """
+    Script v6.0 que popula a base de dados lendo o formato FLE de todos os ficheiros de dados.
+    Lógica de parsing de conhecimentos e aptidões corrigida.
     """
     conn = sqlite3.connect('dados_estruturados/rpg_data.db')
     cursor = conn.cursor()
 
-    try:
-        with open(md_personagens_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        print(f"DEBUG: Conteúdo do arquivo '{md_personagens_path}' lido com sucesso.")
-    except FileNotFoundError:
-        print(f"ERRO: Arquivo de personagens '{md_personagens_path}' não foi encontrado.")
-        conn.close()
-        return
+    personagens_data = parse_fle_file_to_dict(md_personagens_path)
+    status_data = parse_fle_file_to_dict(md_status_path)
 
-    # Regex para dividir o documento em blocos de personagem.
-    # A expressão `(?=@personagem\_id:)` divide o texto ANTES de cada ocorrência de `@personagem_id:`, mantendo o delimitador.
-    character_blocks = re.split(r'(?=@personagem\\_id:)', content)
-    
-    all_characters_data = {}
-    all_skills_data = []
+    gabriel_id = "gabriel_oliveira"
+    clean_db_before_population(cursor, gabriel_id)
 
-    for block in character_blocks:
-        if not block.strip():
-            continue
-
-        # Divide o bloco do personagem entre o perfil e as habilidades
-        # A expressão `(?=@habilidade\_personagem\_id:)` divide no início do primeiro bloco de habilidade.
-        parts = re.split(r'(?=@habilidade\\_personagem\\_id:)', block, maxsplit=1)
-        profile_text = parts[0]
-        # Se houver habilidades, o resto do bloco é skills_text
-        skills_text = parts[1] if len(parts) > 1 else ""
-
-        # --- Parse do Perfil ---
-        # Regex para encontrar todas as tags no formato @tag: valor
-        profile_tags = re.findall(r'@(.+?):\s*([\s\S]*?)(?=\n@|\Z)', profile_text)
-        
-        current_profile = {}
-        char_id = ""
-        for tag_raw, value_raw in profile_tags:
-            # Limpa a tag e o valor
-            tag = tag_raw.replace('\\_', '_').strip()
-            value = value_raw.strip()
-            
-            if tag == 'personagem_id':
-                char_id = value
-            current_profile[tag] = value
-        
-        if not char_id:
-            continue
-            
-        all_characters_data[char_id] = current_profile
-
-        # --- Parse das Habilidades ---
-        if skills_text:
-            # Adiciona o delimitador de volta para que o primeiro bloco de habilidade seja capturado
-            full_skills_text = "@habilidade\\_personagem\\_id:" + skills_text
-            skill_blocks_text = re.split(r'(?=@habilidade\\_personagem\\_id:)', full_skills_text)
-
-            for skill_block in skill_blocks_text:
-                if not skill_block.strip():
-                    continue
-
-                skill_tags_raw = re.findall(r'@(.+?):\s*([\s\S]*?)(?=\n@|\Z)', skill_block)
-                current_skill = {}
-                for tag_raw, value_raw in skill_tags_raw:
-                    tag = tag_raw.replace('\\_', '_').strip()
-                    value = value_raw.strip()
-                    current_skill[tag] = value
-                
-                # Garante que a habilidade seja válida e pertença ao personagem atual
-                if 'nome_habilidade' in current_skill and current_skill.get('habilidade_personagem_id') == char_id:
-                    all_skills_data.append(current_skill)
-
-    print(f"DEBUG: Dados de todos os personagens parseados: {len(all_characters_data)} personagens encontrados.")
-    print(f"DEBUG: Dados de todas as habilidades parseadas: {len(all_skills_data)} habilidades encontradas.")
-
-    # --- Inserir/Atualizar Personagens no DB ---
-    for char_id, profile_data in all_characters_data.items():
-        char_name = profile_data.get('nome_completo', char_id)
-        perfil_json = json.dumps(profile_data, ensure_ascii=False, indent=2)
-        status_json = "" # Padrão para PNJs
-
-        if char_id == "gabriel_oliveira":
-            print("DEBUG: Processando status para Gabriel Oliveira.")
-            gabriel_status_data = {}
-            try:
-                with open(md_status_path, 'r', encoding='utf-8') as f_status:
-                    status_md = f_status.read()
-                
-                status_lines = re.findall(
-                    r'^(Local|Data Estelar|Horário Atual|Cargo|Posses|Créditos|Autorização|Estado Físico e Emocional|Fome|Sede|Cansaço|Humor|Motivação|Conhecimentos e Aptidões Adquiridas|Conhecimento de Mundo \(Lore\)|Habilidades e Aptidões Técnicas|Habilidades Cognitivas|Aptidão com Máquinas|Aptidão com Combate|Aptidão Social|Aptidão Psíquica|Conhecimentos Adquiridos):\s*([\s\S]+?)(?=\n[A-Z][a-z\s]+\s*:|\Z)',
-                    status_md, re.MULTILINE
-                )
-                
-                for key, value in status_lines:
-                    key_clean = key.strip().lower().replace(" ", "_").replace("(", "").replace(")", "").replace("\\", "")
-                    value_clean = value.strip()
-                    gabriel_status_data[key_clean] = value_clean # Simplificando para guardar o texto bruto por enquanto
-                
-                status_json = json.dumps(gabriel_status_data, ensure_ascii=False, indent=2)
-                print(f"DEBUG: status_json para Gabriel gerado.")
-            except FileNotFoundError:
-                print(f"AVISO: Arquivo de status '{md_status_path}' não encontrado. Status de Gabriel não populado.")
-            except Exception as e:
-                print(f"ERRO ao processar o status de Gabriel: {e}")
-
-        cursor.execute(
-            "INSERT OR REPLACE INTO personagens (id, nome, perfil_json, status_json) VALUES (?, ?, ?, ?)",
-            (char_id, char_name, perfil_json, status_json)
+    # --- Popula a tabela 'personagens' ---
+    cursor.execute(
+        "INSERT OR REPLACE INTO personagens (id, nome, localizacao_atual, humor_atual, perfil_json, status_json) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            gabriel_id,
+            personagens_data.get('nome_completo', 'Gabriel Oliveira'),
+            status_data.get('local', ''),
+            status_data.get('humor', ''),
+            json.dumps({k: v for k, v in personagens_data.items() if k != 'personagem_id'}, ensure_ascii=False),
+            json.dumps({k: v for k, v in status_data.items() if k not in ['local', 'humor', 'posses', 'conhecimento', 'aptidao']}, ensure_ascii=False)
         )
-        print(f"DEBUG: Personagem '{char_name}' (ID: {char_id}) inserido/atualizado na tabela 'personagens'.")
-
-    # --- Inserir/Atualizar Habilidades no DB ---
-    print("\nDEBUG: --- Iniciando processamento de habilidades ---")
-    cursor.execute("DELETE FROM habilidades")
-    print("DEBUG: Tabela 'habilidades' limpa para reinserção.")
-    
-    habilidades_para_inserir = []
-    for skill_data in all_skills_data:
-        # A coluna no DB é 'descricao', mas no MD é 'observacoes'
-        descricao = skill_data.get('observacoes', '') 
-        
-        habilidades_para_inserir.append((
-            skill_data.get('habilidade_personagem_id'),
-            skill_data.get('nome_habilidade'),
-            skill_data.get('nivel'),
-            skill_data.get('subnivel'),
-            descricao
-        ))
-
-    cursor.executemany(
-        "INSERT OR REPLACE INTO habilidades (personagem_id, nome_habilidade, nivel, subnivel, descricao) VALUES (?, ?, ?, ?, ?)",
-        habilidades_para_inserir
     )
-    print(f"DEBUG: {len(habilidades_para_inserir)} habilidades inseridas/atualizadas na tabela 'habilidades'.")
+    print("INFO: Tabela 'personagens' populada.")
+
+    # --- Popula a tabela 'inventario' ---
+    if 'posses' in status_data:
+        items_text = status_data['posses']
+        # Regex para encontrar itens de lista, lidando com o primeiro item
+        items = re.findall(r'-\s*(.+)', items_text)
+        inventario_para_inserir = [(gabriel_id, item.strip(), '', 1) for item in items]
+        cursor.executemany("INSERT INTO inventario (personagem_id, nome_item, descricao, quantidade) VALUES (?, ?, ?, ?)", inventario_para_inserir)
+        print(f"INFO: Tabela 'inventario' populada com {len(inventario_para_inserir)} itens.")
+
+    # --- Popula a tabela 'conhecimentos_aptidoes' ---
+    conhecimentos_para_inserir = []
+    
+    # Processa os Conhecimentos
+    if 'conhecimento' in status_data:
+        knowledge_blocks = status_data['conhecimento']
+        if not isinstance(knowledge_blocks, list):
+            knowledge_blocks = [knowledge_blocks]  # Garante que seja uma lista
+
+        for block in knowledge_blocks:
+            categoria_match = re.search(r'@categoria:\s*(.+)', block)
+            topico_match = re.search(r'@topico:\s*(.+)', block)
+            nivel_match = re.search(r'@nivel:\s*(\d+)', block)
+            
+            if categoria_match and topico_match and nivel_match:
+                conhecimentos_para_inserir.append(
+                    (gabriel_id, categoria_match.group(1).strip(), topico_match.group(1).strip(), int(nivel_match.group(1)), 0)
+                )
+
+    # Processa as Aptidões
+    if 'aptidao' in status_data:
+        aptitude_blocks = status_data['aptidao']
+        if not isinstance(aptitude_blocks, list):
+            aptitude_blocks = [aptitude_blocks] # Garante que seja uma lista
+        
+        for block in aptitude_blocks:
+            topico_match = re.search(r'@topico:\s*(.+)', block)
+            if topico_match:
+                # Aptidões são consideradas conhecimento de nível 3 por definição
+                conhecimentos_para_inserir.append(
+                    (gabriel_id, "Aptidão", topico_match.group(1).strip(), 3, 1)
+                )
+
+    if conhecimentos_para_inserir:
+        cursor.executemany("INSERT OR REPLACE INTO conhecimentos_aptidoes (personagem_id, categoria, topico, nivel_proficiencia, is_aptidao) VALUES (?, ?, ?, ?, ?)", conhecimentos_para_inserir)
+        print(f"INFO: Tabela 'conhecimentos_aptidoes' populada com {len(conhecimentos_para_inserir)} registos.")
+    else:
+        print("AVISO: Nenhum conhecimento ou aptidão foi encontrado para popular.")
 
     conn.commit()
     conn.close()
-    print("\nSUCESSO: Dados de personagens e habilidades populados no banco de dados.")
+    print("\nSUCESSO: Base de dados populada a partir de ficheiros FLE padronizados.")
+
 
 if __name__ == "__main__":
-    from configurar_db_sqlite import setup_database
-    
     md_personagens_file = "documentos_rpg_md/Documento RPG - Personagens.md"
     md_status_file = "documentos_rpg_md/Documento RPG - Estado Atual da Campanha e Log.md"
 
-    print("--- Fase 1: Configurando o Banco de Dados ---")
-    setup_database()
-    
-    print("\n--- Fase 2: Populando Dados dos Personagens e Habilidades ---")
-    populate_characters_and_skills(md_personagens_file, md_status_file)
+    print("\n--- Populando Dados a partir de Ficheiros FLE (v6.0) ---")
+    populate_database(md_personagens_file, md_status_file)
