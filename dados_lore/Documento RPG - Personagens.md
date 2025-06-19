@@ -1,3 +1,5 @@
+# **Documento RPG \- Personagens (Formato FLE)**
+
 @personagem\_id: gabriel\_oliveira  
 @nome\_completo: Gabriel Oliveira  
 @tipo: jogador  
@@ -7,41 +9,49 @@
 @talento\_tecnologico: Tem um talento natural para tecnologias, demonstrando uma facilidade em compreender e interagir com sistemas e dispositivos.  
 @autoconhecimento: Gabriel ainda possui pouco conhecimento de si mesmo e acha difícil conhecer a si mesmo, o que é um processo contínuo em sua jornada.  
 @origem: Cresceu na estação Nova Aurora, um ambiente seguro e estável, mas intelectualmente limitado.  
+@habilidade:  
 @habilidade\_personagem\_id: gabriel\_oliveira  
 @nome\_habilidade: Operação de Equipamentos  
 @nivel: 1  
 @subnivel: D  
 @observacoes: Compreensão funcional da interface da estação de treinamento para posicionamento de naves e ativação de coletores.  
+@habilidade:  
 @habilidade\_personagem\_id: gabriel\_oliveira  
 @nome\_habilidade: Leitura de Dados  
 @nivel: 1  
 @subnivel: D  
 @observacoes: Melhora na interpretação de gráficos complexos e na capacidade de identificar e reportar anomalias com precisão.  
+@habilidade:  
 @habilidade\_personagem\_id: gabriel\_oliveira  
 @nome\_habilidade: Manutenção e Reparos  
 @nivel: 0  
 @subnivel: E  
 @observacoes: Noções mínimas, mas nenhum domínio.  
+@habilidade:  
 @habilidade\_personagem\_id: gabriel\_oliveira  
 @nome\_habilidade: Lógica e Raciocínio  
 @nivel: 1  
 @subnivel: B  
 @observacoes: Capacidade aprimorada de organizar e sintetizar informações complexas de forma estratégica para aplicação prática.  
+@habilidade:  
 @habilidade\_personagem\_id: gabriel\_oliveira  
 @nome\_habilidade: Aprendizado  
 @nivel: 1  
 @subnivel: D  
 @observacoes: Aprende rápido, mas falta disciplina.  
+@habilidade:  
 @habilidade\_personagem\_id: gabriel\_oliveira  
 @nome\_habilidade: Memória Técnica  
 @nivel: 0  
 @subnivel: E  
 @observacoes: Pouco desenvolvida por falta de estudo.  
+@habilidade:  
 @habilidade\_personagem\_id: gabriel\_oliveira  
 @nome\_habilidade: Autodisciplina  
 @nivel: 0  
 @subnivel: E  
 @observacoes: Preguiça atrapalha aprendizado e foco.  
+@habilidade:  
 @habilidade\_personagem\_id: gabriel\_oliveira  
 @nome\_habilidade: Gestão de Crise  
 @nivel: 1  
