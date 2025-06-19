@@ -1,5 +1,8 @@
 # **Documento RPG \- Personagens (Formato FLE)**
 
+@documento\_id: personagens
+
+@personagem:  
 @personagem\_id: gabriel\_oliveira  
 @nome\_completo: Gabriel Oliveira  
 @tipo: jogador  
@@ -57,12 +60,14 @@
 @nivel: 1  
 @subnivel: D  
 @observacoes: Habilidade emergente de responder rapidamente a anomalias em tempo real, aplicando conhecimentos para mitigar riscos.  
+@personagem:  
 @personagem\_id: supervisor\_tarek  
 @nome\_completo: Supervisor Tarek  
 @tipo: pnj  
 @aparencia: Alto, feições duras, uniforme azul-escuro.  
 @personalidade: Sério, pragmático, valoriza sinceridade e competência. Tolerante à inexperiência se há potencial real e atitude correta.  
 @frase\_marcante: "Não tentou parecer perfeito. Isso é bom."  
+@personagem:  
 @personagem\_id: nara\_elven  
 @nome\_completo: Nara Elven  
 @tipo: pnj  
@@ -70,6 +75,7 @@
 @caracteristicas: Estatura mediana, cabelos escuros. Possui uma gravidade silenciosa e uma voz real, não autoritária. Cansada, mas com um cansaço que não a domina.  
 @visao\_sobre\_estacao: Acha a Vigilância Solaris exigente, com uma calma que pressagia problemas, mas também fascinante.  
 @conselho: "Não tenta entender tudo logo no começo. Observa. Anota. Escuta mais do que fala."  
+@personagem:  
 @personagem\_id: vendedor\_assistentes  
 @nome\_completo: Vendedor de Assistentes Pessoais  
 @tipo: pnj  
