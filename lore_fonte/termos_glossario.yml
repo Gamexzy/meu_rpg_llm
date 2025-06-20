@@ -1,0 +1,16 @@
+# Documento: Glossário de Termos
+# Versão: 1.48
+# Descrição: Definições rápidas para termos importantes do universo do RPG.
+
+glossario:
+  Alianca_de_Estacoes_Orbitais: "Organização que padroniza calendários (UTC) e outros protocolos entre as estações."
+  Creditos_de_Estacao: |
+    A moeda padrão utilizada na Vigilância Solaris. Dividido em:
+    - Conta Principal: Armazenamento seguro para transações maiores.
+    - Pulseira (IIP): Porção para uso diário, deduzida diretamente da pulseira.
+  Datapad: "Dispositivo eletrônico multifuncional, usado para acesso a mapas, informações e registro de dados."
+  Equipe_Beta: "Célula operacional da Vigilância Solaris, responsável por coleta de dados, calibração, e testes em campo."
+  FocusLink_Mini: "Assistente pessoal portátil focado em produtividade e suporte técnico básico."
+  UTC: "Coordinated Universal Time. Padrão de tempo terrestre adaptado pelas estações orbitais."
+  Vigilancia_Solaris: "Estação orbital científica de médio porte, localizada na órbita de Ytaris-4."
+  Ytaris-4: "Planeta gasoso orbitado pela estação, com padrões de nuvens turquesa e douradas."

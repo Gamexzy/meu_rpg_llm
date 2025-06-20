@@ -1,0 +1,51 @@
+# Documento: Informações Espaciais das Estações
+# Versão: 1.59
+# Descrição: Centraliza informações espaciais de estações e planetas conhecidos.
+
+localizacao_galactica_ampliada:
+  braco_espiral_principal: "Braço de Órion"
+  caracteristicas_braco: "Área densamente populada e ativa, onde a humanidade e aliados concentram atividades."
+  regiao_galactica: "A Margem da Espiral de Órion"
+  caracteristicas_regiao: "Menos densa que o centro do Braço, mas vibrante com colonização e comércio."
+  setor_estelar: "Setor da Nebulosa Égide"
+  caracteristicas_setor: "Caracterizado por densas e coloridas nebulosas que podem dificultar a navegação, mas abrigam fenômenos científicos únicos."
+
+sistema_ytaris:
+  caracteristicas_gerais: "Sistema estelar calmo na borda interna da Nebulosa Égide, ideal para pesquisa."
+  estrela_primaria:
+    nome: "Ytaris Primária"
+    classificacao: "Classe K (Anã laranja-avermelhada)"
+  corpos_celestes:
+    - nome: "Ytaris-4"
+      tipo: "Gigante gasoso"
+      relevancia: "Ponto gravitacional central para a Vigilância Solaris."
+      estacao_orbital:
+        nome: "Vigilância Solaris"
+        tipo: "Estação científica de médio porte"
+        posicao: "Órbita baixa e estável"
+        funcao: "Centro de pesquisa atmosférica, monitoramento orbital e operações técnicas."
+    - nome: "Ytaris-1, Ytaris-2, Ytaris-3"
+      tipo: "Planetas rochosos internos"
+      descricao: "Inóspitos. Ytaris-2 é notável por vastos depósitos de minerais pesados."
+    - nome: "Cinturão de Asteroides de Kronos"
+      localizacao: "Entre Ytaris-3 e Ytaris-4"
+      descricao: "Significativo cinturão de detritos, rico em metais e elementos raros."
+    - nome: "Ytaris-5, Ytaris-6"
+      tipo: "Gigantes de gelo externos"
+      descricao: "Atmosferas congeladas, com oceanos subsuperficiais sob estudo."
+  outras_instalacoes:
+    - "Postos de Mineração Automatizados (principalmente no cinturão de Kronos)"
+    - "Plataformas de Observação Remota (poucas e distantes)"
+    - "Naves de Suporte e Reabastecimento (rotativas, usam a Vigilância Solaris como hub)"
+
+origem_distante:
+  - nome: "Nova Aurora"
+    tipo: "Colônia espacial"
+    posicao: "Localização exata não especificada, distante de Ytaris."
+    caracteristicas: "Colônia populosa, focada no comércio, ambiente seguro e estável."
+
+pontos_de_referencia_navegacao_proximos:
+  - nome: "Passagem de Solara"
+    descricao: "Corredor de navegação natural através de um campo de asteroides, usado por naves de carga e patrulhas da FUS."
+  - nome: "Posto Avançado Echo-7"
+    descricao: "Pequena estação de reabastecimento e monitoramento da FUS, a alguns dias de viagem da Vigilância Solaris."

@@ -1,0 +1,63 @@
+# Documento: Personagens
+# Versão: 1.53
+# Descrição: Foco nos personagens do RPG, suas fichas e perfis.
+
+personagens:
+  - nome: "Gabriel Oliveira"
+    perfil:
+      cargo: "Assistente Técnico Nível 1, Equipe Beta"
+      caracteristicas: "Inteligente, curioso, com raciocínio por vezes lento e certa preguiça prática."
+      personalidade: |
+        Mais introvertido e sério em um primeiro contato. Quando desenvolve intimidade,
+        revela-se mais brincalhão. Gosta de fazer o bem, mas sua motivação é
+        intensificada por ganhos pessoais (conhecimento, recursos, etc.).
+      habilidades_fisicas: "Boa coordenação motora, bom em corridas de 100m, pouca resistência."
+      talento_tecnologico: "Facilidade natural para compreender e interagir com sistemas e dispositivos."
+      autoconhecimento: "Ainda possui pouco conhecimento de si mesmo, um processo contínuo."
+      origem: "Cresceu na estação Nova Aurora, um ambiente seguro, mas intelectualmente limitado."
+    ficha_habilidades:
+      habilidades_tecnicas:
+        - nome: "Operação de Equipamentos"
+          nivel: "1D"
+          observacoes: "Compreensão funcional da interface da estação de treinamento."
+        - nome: "Leitura de Dados"
+          nivel: "1D"
+          observacoes: "Melhora na interpretação de gráficos e capacidade de reportar anomalias."
+        - nome: "Manutenção e Reparos"
+          nivel: "0E"
+          observacoes: "Noções mínimas, mas nenhum domínio."
+      habilidades_cognitivas:
+        - nome: "Lógica e Raciocínio"
+          nivel: "1B"
+          observacoes: "Capacidade aprimorada de organizar e sintetizar informações de forma estratégica."
+        - nome: "Aprendizado"
+          nivel: "1D"
+          observacoes: "Aprende rápido, mas falta disciplina."
+        - nome: "Memória Técnica"
+          nivel: "0E"
+          observacoes: "Pouco desenvolvida por falta de estudo."
+        - nome: "Autodisciplina"
+          nivel: "0E"
+          observacoes: "Preguiça atrapalha aprendizado e foco."
+        - nome: "Gestão de Crise"
+          nivel: "1D"
+          observacoes: "Habilidade emergente de responder rapidamente a anomalias em tempo real."
+
+  - nome: "Supervisor Tarek"
+    perfil:
+      aparencia: "Alto, feições duras, uniforme azul-escuro."
+      personalidade: "Sério, pragmático, valoriza sinceridade e competência. Tolerante à inexperiência se há potencial."
+      frase_marcante: "Não tentou parecer perfeito. Isso é bom."
+
+  - nome: "Nara Elven"
+    perfil:
+      cargo: "Supervisora Operacional do setor atmosférico, suporte à Equipe Beta."
+      caracteristicas: "Estatura mediana, cabelos escuros. Possui uma gravidade silenciosa e uma voz real."
+      personalidade: "Cansada, mas com um cansaço que não a domina. Acha a estação exigente, mas fascinante."
+      conselho: "Não tenta entender tudo logo no começo. Observa. Anota. Escuta mais do que fala."
+
+  - nome: "Vendedor de Assistentes Pessoais"
+    perfil:
+      aparencia: "Uniforme azul-escuro, sorriso simpático e profissional."
+      personalidade: "Cordial, prestativo, bem-informado sobre os produtos e as necessidades dos clientes."
+      conhecimento: "Possui informações sobre os setores da estação e o perfil de novos tripulantes."

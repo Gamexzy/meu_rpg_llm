@@ -1,0 +1,34 @@
+# Documento: Grandes Civilizações Galácticas
+# Versão: 1.01
+# Descrição: Detalhes sobre as principais civilizações conhecidas no universo do RPG.
+
+civilizacoes:
+  - nome: "A Federação Unida de Sistemas (FUS)"
+    caracteristicas: "Principalmente humana, vasta e democrática aliança de sistemas. Focada em expansão pacífica, ciência e tecnologia."
+    influencia: "Dominante em rotas comerciais e pesquisa. Pilar da Aliança de Estações Orbitais. Presença significativa no Braço de Órion."
+    relacoes: "Buscam cooperação e intercâmbio cultural, mas cautelosos com espécies de filosofias divergentes."
+
+  - nome: "Os Silenciosos (Raça Xylos)"
+    caracteristicas: "Civilização enigmática de seres baseados em energia. Mestres em manipulação gravitacional e geoengenharia. Extremamente pragmáticos."
+    influencia: "Controlam vastos cinturões de asteroides ricos em minerais. Atuam de forma indireta ou através de avatares de energia."
+    relacoes: "Misteriosos e reclusos. Evitam conflitos diretos. Sua tecnologia é cobiçada."
+
+  - nome: "A Confederação K'tharr"
+    caracteristicas: "Raça reptiliana com estrutura social hierárquica e militarista. Conhecidos pela disciplina, honra e perícia em combate."
+    influencia: "Controlam setores estratégicos, atuando como força militar dissuasora."
+    relacoes: "Aliados formidáveis, mas também adversários implacáveis. Respeitam a força. Relação complexa com a FUS."
+
+  - nome: "Os Enigmas de Lumina (Luminaris)"
+    caracteristicas: "Civilização etérea de pura energia ou matéria plasmática. Sábios ancestrais que guardam segredos de tecnologias perdidas."
+    influencia: "Sutil, através de intervenções pontuais e compartilhamento seletivo de conhecimentos. Atuam como 'observadores'."
+    relacoes: "Misteriosos e reclusos. Raramente se comunicam diretamente. Evitam conflitos."
+
+  - nome: "O Império Kryll"
+    caracteristicas: "Antiga raça insetoide com sociedade coletivista. Notáveis por sua engenharia biológica e cidades que são ecossistemas vivos."
+    influencia: "Controlam vastas extensões de espaço em aglomerados densos. Sua bioengenharia é cobiçada."
+    relacoes: "Pragmaticamente cooperativos quando serve aos interesses do Coletivo. A diplomacia é desafiadora devido à sua mente coletiva."
+
+  - nome: "A Confraria Mercante de Th'al"
+    caracteristicas: "Vasta e influente associação interespécies de comerciantes e exploradores. Focados em lucro, negociação e adaptabilidade."
+    influencia: "Imensa influência econômica, dominam redes de comércio e rotas de suprimentos."
+    relacoes: "Neutros em conflitos políticos, desde que o comércio não seja interrompido. Negociam com todas as raças."

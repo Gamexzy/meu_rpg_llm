@@ -1,0 +1,92 @@
+# Documento: Sistemas e Regras de Jogo
+# Versão: 1.64
+# Descrição: Centraliza as diretrizes, regras e sistemas que governam o RPG.
+
+visao_geral_jogo:
+  cenario: "Simulação realista e narrativa detalhada na estação Vigilância Solaris, em órbita de Ytaris-4."
+  personagem_principal: "Gabriel Oliveira"
+  pilares:
+    - "Gerenciamento de necessidades físicas e mentais (energia, fome, sede, etc.)."
+    - "Escolhas com consequências diretas na história e relações."
+    - "Interações significativas com PNJs e ambiente para obter informações."
+    - "Progresso narrativo e sistêmico ligado a decisões, esforços e interações."
+
+principios_gestao_documentos:
+  - principio: 1
+    nome: "Estrutura Acima de Prosa"
+    descricao: "Informação deve ser concisa e estruturada (listas, tabelas) para análise rápida."
+  - principio: 2
+    nome: "Fonte Única da Verdade"
+    descricao: "Cada tipo de informação reside em um único documento principal para evitar duplicação."
+  - principio: 3
+    nome: "Atualização Contínua e Consistente"
+    descricao: "O Mestre é responsável por manter os documentos atualizados com base nas ações do jogador."
+  - principio: 4
+    nome: "Foco na Relevância para o Jogo"
+    descricao: "A documentação deve servir ao jogo, omitindo detalhes sem impacto potencial."
+
+sistemas_de_jogo:
+  evolucao_habilidades:
+    catalisador: "A reflexão narrativa é o principal motor para a progressão de níveis e pode acelerar a de subníveis."
+    progressao:
+      niveis_principais: "1 a 5"
+      subniveis: "F -> D -> C -> B -> A"
+      exemplo: "1E -> 1A -> 2E"
+    tipos_habilidade:
+      - tipo: Técnicas
+        evolucao: "Uso prático e experiência, consolidada pela reflexão."
+        exemplos: ["Operação de Equipamentos", "Leitura de Dados", "Manutenção e Reparos"]
+      - tipo: Cognitivas/Complexas
+        evolucao: "Eventos marcantes, estudo estruturado, dilemas e reflexão aprofundada."
+        exemplos: ["Lógica e Raciocínio", "Aprendizado", "Autodisciplina", "Gestão de Crise"]
+  
+  sistema_de_estudos:
+    tipos:
+      - tipo: Teórico/Reflexivo
+        atividades: "Leitura de documentos, escrita de relatórios, análise de ideias."
+        resultados: "Conhecimento útil, teorias próprias, potencial para progresso cognitivo."
+      - tipo: Exploratório/Observacional
+        atividades: "Explorar equipamentos, ambientes, fenômenos novos."
+        resultados: "Conhecimento técnico, teorias práticas, potencial para evolução técnica e cognitiva."
+    observacao: "A reflexão aumenta drasticamente a eficácia do estudo e é fundamental para a progressão."
+
+  conhecimento_e_aptidoes:
+    categorias:
+      - "Conhecimento de Mundo (Lore)"
+      - "Conhecimento Técnico-Científico"
+      - "Conhecimento Operacional"
+    niveis_proficiencia:
+      - nivel: 1
+        descricao: "Visão Geral: Entendimento superficial, pode citar 1-2 fatos básicos."
+      - nivel: 2
+        descricao: "Conhecimento Funcional: Entendimento prático, compreende funcionamento e relevância."
+      - nivel: 3
+        descricao: "Conhecimento Aprofundado/Especializado: Domínio da teoria, conhecimento de nuances."
+    aptidoes:
+      definicao: "Conhecimento tão bem internalizado que se torna uma habilidade prática, quase instintiva."
+      exemplo: "Otimização de IA Pessoal, gerada a partir do conhecimento sobre Processadores Neurais e o FocusLink Mini."
+
+  memoria_dinamica:
+    essencia: "Consolidar informações com base na relevância e impacto, em vez de apenas 'esquecer'."
+    niveis_memoria:
+      - nivel: 3
+        nome: "Arquivo Bruto (Memória Subconsciente)"
+        finalidade: "Base de dados completa de todos os eventos em Formato de Log Estruturado (FLE)."
+      - nivel: 2
+        nome: "Memórias Consolidadas (Diário de Bordo)"
+        finalidade: "Narrativa em prosa que representa a memória ativa e consciente de Gabriel."
+      - nivel: 1
+        nome: "Log de Eventos (Resumo Executivo)"
+        finalidade: "Índice de consulta rápida dos fatos e ações principais."
+    processo_consolidacao: "Durante o 'Intervalo Noturno', a reflexão do jogador guia a geração das Memórias Consolidadas e do Log de Eventos a partir do Arquivo Bruto."
+
+preferencias_conducao_rpg:
+  - "Narrativa Fluida e Ações (Sem Opções Numeradas)"
+  - "Avisos de Progresso de Habilidades (Implícitos, não técnicos)"
+  - "Criação de Ambiente (Preenchimento Coeso)"
+  - "Gerenciamento Imersivo e Granular do Tempo"
+  - "Realismo na Criação de Corpos Celestes"
+  - "Microconflitos e Dilemas do Dia a Dia"
+  - "Efeitos Físicos e Mentais de Longo Prazo"
+  - "Imersão Total do Jogador na Pele de Gabriel (com falha realista)"
+  - "Regra de Lapso de Tempo para Ações de Pensamento (só para ações físicas ou reflexões profundas)"

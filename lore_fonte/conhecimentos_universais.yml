@@ -1,0 +1,72 @@
+# Documento: Conhecimentos Universais
+# Versão: 1.57
+# Descrição: Repositório de informações amplamente conhecidas no universo do RPG.
+
+ia_e_processadores_neurais:
+  processadores_neurais:
+    descricao: "Fundamentais para a IA, simulam o cérebro biológico para processamento paralelo."
+    estrutura:
+      nos:
+        nome: "Nós (ou 'Neurônios Digitais')"
+        funcao: "Unidades de processamento que recebem, calculam e transmitem saídas."
+      conexoes:
+        nome: "Conexões (ou 'Sinapses Digitais')"
+        funcao: "Vínculos entre nós que transferem sinais, com um 'peso' que determina a influência."
+      camadas:
+        - "Camada de Entrada: Recebe dados brutos."
+        - "Camadas Ocultas: Realizam o processamento complexo."
+        - "Camada de Saída: Produz o resultado final."
+  nucleos_ia_adaptativa:
+    descricao: "Componentes que permitem aos processadores 'aprender' e otimizar seu desempenho."
+    algoritmos:
+      - "Backpropagation: Ajusta pesos com base em erros."
+      - "Aprendizado por Reforço: Aprende por tentativa e erro, buscando recompensas."
+
+conceitos_fundamentais_universo:
+  gravidade_artificial: "Gerada pela rotação controlada de seções habitáveis, criando força centrífuga."
+  terminais_inteligentes: "Pontos de acesso à informação e sistemas da estação, com comandos de voz e toque."
+  pulseiras_iip: "Dispositivos obrigatórios que funcionam como identidade, carteira, chave e monitor de saúde."
+  sistemas_comunicacao: "Redes avançadas para comunicação local (interna) e de longa distância (externa, usando tecnologia quântica)."
+  alianca_estacoes_orbitais: "Organização galáctica que estabelece padrões e protocolos, incluindo calendário (UTC)."
+  coexistencia_racas: "A humanidade coexiste com diversas raças, com interações colaborativas e desafiadoras."
+
+proteses_e_aprimoramentos_ciberneticos:
+  descricao: "Avanços tecnológicos que se integram ao sistema nervoso do usuário."
+  caracteristicas:
+    - "Funcionalidade Aprimorada: Restauração precisa da mobilidade e sensibilidade."
+    - "Capacidades Superiores: Força aumentada, agilidade aprimorada, interfaces neurais diretas."
+    - "Expressão Estética: Vasta gama de opções de personalização."
+  manutencao: "Requerem implantação cirúrgica e manutenção periódica."
+
+ytaris_4_detalhes:
+  tipo: "Gigante gasoso, ponto gravitacional da Vigilância Solaris."
+  composicao_atmosferica: "Predominantemente hidrogênio e hélio, com traços de metano e amônia (cores turquesa e dourado)."
+  estrutura_interna: "Pequeno núcleo rochoso, envolto por hidrogênio metálico e líquido."
+  fenomenos_climaticos: "Correntes de vento supersônicas e tempestades ciclônicas massivas."
+  relevancia_cientifica: "Ideal para o estudo de fenômenos atmosféricos e magnéticos."
+  habitabilidade: "Inabitável devido à pressão e temperatura extremas."
+
+cronologia_evolucao_humana:
+  - era: "Pré-Espacial (Origens)"
+    descricao: "Evolução biológica na Terra, desenvolvimento de ferramentas, linguagem e civilizações."
+  - era: "Expansão Planetária (Séculos XXI-XXII)"
+    descricao: "Primeiras viagens espaciais tripuladas, colônias fora da Terra, pesquisa em propulsão de dobra."
+  - era: "Colonização Interestelar (Séculos XXIII-XXIV)"
+    descricao: "Colonização de sistemas estelares próximos, primeiro contato com outras espécies."
+  - era: "Estações Orbitais Avançadas (Século XXV - Atual)"
+    descricao: "Desenvolvimento de estações autossuficientes, tecnologia cibernética e IA sofisticadas, coexistência em larga escala com alienígenas."
+
+design_naves_e_estacoes_orbitais:
+  propulsao_interestelar:
+    - tipo: "Motores de Dobra"
+      descricao: "Mais comuns para viagens FTL, dobram o espaço-tempo."
+    - tipo: "Propulsores de Íons"
+      descricao: "Para manobras precisas, alta eficiência e baixa aceleração."
+    - tipo: "Motores de Singularidade"
+      descricao: "Raros e poderosos, usam micro-singularidades para impulsos massivos."
+  arquitetura_estacoes:
+    design_modular: "Permite que setores sejam conectados/desconectados, facilitando expansões e reparos."
+  sistemas_de_suporte_a_vida: "Reciclagem contínua de ar e água para manter ambientes habitáveis."
+  tecnologias_de_protecao:
+    escudos_defletores: "Campos de energia que desviam detritos e radiação."
+    sistemas_compensacao_inercia: "Anulam ou reduzem os efeitos da inércia durante acelerações bruscas."

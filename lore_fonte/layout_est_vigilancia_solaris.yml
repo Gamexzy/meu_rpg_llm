@@ -1,0 +1,72 @@
+# Documento: Layout Interno da Estação Vigilância Solaris
+# Versão: 1.61
+# Descrição: Mapa detalhado da estação, seus setores, acessos e tecnologias integradas.
+
+estrutura_geral:
+  niveis_principais: 3
+  conexoes: "Rede eficiente de elevadores e escadas."
+
+setores_e_pontos_interesse:
+  - nome: "Corredor Leste"
+    acesso_a: ["Refeitório Central", "Salas de Descanso", "Varanda de Observação Lateral"]
+  - nome: "Corredor Técnico Norte"
+    acesso_a: ["Bloco Beta (área de trabalho de Gabriel)", "Sala de Manutenção", "Terminal de Status Ambiental"]
+  - nome: "Biblioteca e Arquivos Digitais"
+    localizacao: "Próxima ao centro da estação."
+    descricao: "Centro de conhecimento silencioso com vastos arquivos."
+    secoes_principais:
+      - "Arquivos de Pesquisa Científica"
+      - "Manuais Operacionais e Regulamentos"
+      - "História e Cultura Galáctica"
+      - "Tecnologia e Engenharia Aplicada"
+      - "Educação e Treinamento"
+      - "Comunicações e Mídia"
+      - "Seção de Navegação e Rotas Espaciais"
+  - nome: "Doca de Carga (Bloco B)"
+    descricao: "Área operacional movimentada com fluxo constante de materiais."
+  - nome: "Refeitório Central (Setor Delta 1)"
+    descricao: "Local de refeições com buffet e janelas panorâmicas para o espaço."
+  - nome: "Setor Comercial Delta & Mercado de Tecnologia do Pavilhão 3"
+    descricao: "Locais para encontrar fornecedores autorizados de tecnologia."
+  - nome: "Alojamento Unidade 14-B (Setor de Dormitórios)"
+    localizacao: "Nível Inferior"
+    descricao: "O quarto de Gabriel, equipado com terminal pessoal."
+  - nome: "Laboratório Atmosférico 4B, Bloco Beta"
+    descricao: "Espaço amplo para pesquisa e monitoramento de Ytaris-4, com cilindros de contenção e painéis holográficos."
+    inclui:
+      nome: "Estação de Treinamento"
+      interface: "Simulações de Ytaris-4, com indicadores visuais para naves e pontos de coleta."
+
+tecnologias_essenciais_estacao:
+  tecnologia_estrutural_e_ambiental:
+    - nome: "Gravidade Artificial"
+      descricao: "Criada por rotação dos anéis habitáveis e estabilizadores de massa."
+    - nome: "Controle Ambiental Dinâmico"
+      descricao: "Temperatura, umidade e pressão ajustadas por zonas automaticamente."
+    - nome: "Escudos de Micrometeoritos"
+      descricao: "Camadas inteligentes de material adaptativo que reforçam as paredes externas."
+  tecnologia_de_informacao_e_interface:
+    - nome: "Terminais Inteligentes"
+      descricao: "Distribuídos pela estação, respondem a voz e toques."
+    - nome: "Pulseiras de Identificação Integrada (IIP)"
+      descricao: "Identificação, carteira, acesso e monitor de saúde."
+    - nome: "Sistemas de Comunicação Local e Externa"
+      descricao: "Baseados em transmissão quântica para comunicações externas quase sem atraso."
+  tecnologia_operacional_e_cientifica:
+    - nome: "Laboratórios Atmosféricos e Biogênicos"
+      descricao: "Capazes de simular condições ambientais de planetas estudados."
+    - nome: "Drones de Manutenção e Inspeção"
+      descricao: "Cuidam da limpeza externa, inspeção e pequenas manutenções."
+    - nome: "IA Setorial Auxiliar"
+      descricao: "Várias IAs menores que coordenam setores específicos (pesquisa, engenharia, etc.)."
+  tecnologia_pessoal_e_de_suporte:
+    - nome: "Assistentes Pessoais"
+      descricao: "Vão de simples agentes de voz a unidades de IA portátil com autonomia."
+    - nome: "Refeitórios Automatizados com Impressão Nutricional"
+      descricao: "Alimentos impressos com base em nutrientes e dados biométricos."
+    - nome: "Alojamentos Inteligentes"
+      descricao: "Detectam presença e ajustam o ambiente (luz, temperatura)."
+
+areas_restritas:
+  - "Setor de Pesquisa Avançada"
+  - "Sala de Servidores Centrais"
