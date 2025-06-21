@@ -1,72 +1,242 @@
-# Documento: Conhecimentos Universais
+# Documento de Conhecimentos Universais do RPG
 # Versão: 1.57
-# Descrição: Repositório de informações amplamente conhecidas no universo do RPG.
+# Formato: YAML
+# Este arquivo serve como um repositório para informações amplamente conhecidas
+# ou princípios fundamentais do universo do RPG.
 
-ia_e_processadores_neurais:
+info_geral:
+  documento: "Conhecimentos Universais do RPG"
+  versao: "1.57"
+  descricao: >
+    Um repositório para informações amplamente conhecidas ou princípios
+    fundamentais do universo do RPG, que não são específicos de uma campanha
+    ou personagem, mas fazem parte do conhecimento generalizado acessível à
+    maioria dos indivíduos informados.
+
+principios_tecnologicos:
   processadores_neurais:
-    descricao: "Fundamentais para a IA, simulam o cérebro biológico para processamento paralelo."
-    estrutura:
-      nos:
-        nome: "Nós (ou 'Neurônios Digitais')"
-        funcao: "Unidades de processamento que recebem, calculam e transmitem saídas."
-      conexoes:
-        nome: "Conexões (ou 'Sinapses Digitais')"
-        funcao: "Vínculos entre nós que transferem sinais, com um 'peso' que determina a influência."
-      camadas:
-        - "Camada de Entrada: Recebe dados brutos."
-        - "Camadas Ocultas: Realizam o processamento complexo."
-        - "Camada de Saída: Produz o resultado final."
-  nucleos_ia_adaptativa:
-    descricao: "Componentes que permitem aos processadores 'aprender' e otimizar seu desempenho."
-    algoritmos:
-      - "Backpropagation: Ajusta pesos com base em erros."
-      - "Aprendizado por Reforço: Aprende por tentativa e erro, buscando recompensas."
+    id: tec_proc_neural
+    nome: "Estrutura de Processadores Neurais e Núcleos de IA Adaptativa"
+    descricao: >
+      Fundamentais para a IA embarcada, simulam o cérebro biológico para
+      processamento paralelo de informações.
+    estrutura_basica:
+      - nome: "Nós (Neurônios Digitais)"
+        descricao: "Unidades de processamento que recebem, calculam e transmitem sinais."
+      - nome: "Conexões (Sinapses Digitais)"
+        descricao: "Vínculos entre nós com 'pesos' que determinam a força do sinal."
+      - nome: "Camadas"
+        descricao: "Organização hierárquica dos nós."
+        tipos_camadas:
+          - nome: "Camada de Entrada"
+            funcao: "Recebe os dados brutos a serem processados."
+          - nome: "Camadas Ocultas"
+            funcao: "Realizam o processamento complexo, extraindo padrões."
+          - nome: "Camada de Saída"
+            funcao: "Produz o resultado final ou a decisão."
+    ia_adaptativa:
+      nome: "Núcleos de IA Adaptativa"
+      descricao: >
+        Componentes que permitem aos processadores 'aprender' e otimizar seu
+        desempenho com base em novos dados, utilizando algoritmos de
+        aprendizado de máquina (ex: backpropagation, aprendizado por reforço).
 
-conceitos_fundamentais_universo:
-  gravidade_artificial: "Gerada pela rotação controlada de seções habitáveis, criando força centrífuga."
-  terminais_inteligentes: "Pontos de acesso à informação e sistemas da estação, com comandos de voz e toque."
-  pulseiras_iip: "Dispositivos obrigatórios que funcionam como identidade, carteira, chave e monitor de saúde."
-  sistemas_comunicacao: "Redes avançadas para comunicação local (interna) e de longa distância (externa, usando tecnologia quântica)."
-  alianca_estacoes_orbitais: "Organização galáctica que estabelece padrões e protocolos, incluindo calendário (UTC)."
-  coexistencia_racas: "A humanidade coexiste com diversas raças, com interações colaborativas e desafiadoras."
+  proteses_ciberneticas:
+    id: tec_protese
+    nome: "Próteses Tecnológicas e Aprimoramentos Cibernéticos"
+    descricao: >
+      Avanço comum que vai além da simples substituição de membros, integrando-se
+      perfeitamente ao sistema nervoso do usuário.
+    caracteristicas:
+      - nome: "Funcionalidade Aprimorada"
+        descricao: "Restauração precisa da mobilidade, igualando ou superando o biológico."
+      - nome: "Capacidades Superiores"
+        descricao: "Melhorias como força aumentada, agilidade aprimorada ou interfaces sensoriais avançadas."
+      - nome: "Expressão Estética"
+        descricao: "Vasta gama de opções de personalização, servindo como expressão pessoal."
+      - nome: "Integração e Manutenção"
+        descricao: "Requerem cirurgia para implantação e manutenção periódica."
 
-proteses_e_aprimoramentos_ciberneticos:
-  descricao: "Avanços tecnológicos que se integram ao sistema nervoso do usuário."
-  caracteristicas:
-    - "Funcionalidade Aprimorada: Restauração precisa da mobilidade e sensibilidade."
-    - "Capacidades Superiores: Força aumentada, agilidade aprimorada, interfaces neurais diretas."
-    - "Expressão Estética: Vasta gama de opções de personalização."
-  manutencao: "Requerem implantação cirúrgica e manutenção periódica."
+conceitos_universo:
+  id: conceito_universo
+  titulo: "Conceitos Fundamentais do Universo e Estações Espaciais"
+  principios:
+    - nome: "Gravidade Artificial"
+      descricao: "Gerada pela rotação controlada de seções habitáveis, criando força centrífuga."
+    - nome: "Terminais Inteligentes"
+      descricao: "Pontos de acesso à informação e sistemas da estação, respondendo a voz e toque."
+    - nome: "Pulseiras de Identificação Integrada (IIP)"
+      descricao: "Dispositivo obrigatório que funciona como identidade, carteira, chave e monitor de saúde."
+    - nome: "Sistemas de Comunicação"
+      descricao: "Redes avançadas para comunicação local (interna) e de longa distância (externa)."
+    - nome: "Aliança de Estações Orbitais"
+      descricao: "Organização galáctica que estabelece padrões e protocolos, incluindo calendário (UTC)."
+    - nome: "Coexistência de Raças"
+      descricao: "A humanidade coexiste com diversas outras raças, com interações colaborativas e desafiadoras."
 
-ytaris_4_detalhes:
-  tipo: "Gigante gasoso, ponto gravitacional da Vigilância Solaris."
-  composicao_atmosferica: "Predominantemente hidrogênio e hélio, com traços de metano e amônia (cores turquesa e dourado)."
-  estrutura_interna: "Pequeno núcleo rochoso, envolto por hidrogênio metálico e líquido."
-  fenomenos_climaticos: "Correntes de vento supersônicas e tempestades ciclônicas massivas."
-  relevancia_cientifica: "Ideal para o estudo de fenômenos atmosféricos e magnéticos."
-  habitabilidade: "Inabitável devido à pressão e temperatura extremas."
+cronologia_humana:
+  id: crono_humana
+  titulo: "Cronologia da Evolução Humana"
+  descricao: >
+    A jornada da humanidade desde as origens na Terra até a atualidade como
+    uma espécie intergaláctica.
+  eras:
+    - nome: "Era Pré-Espacial (Origens)"
+      periodo_desc: "Milhões de anos de evolução na Terra."
+      marcos:
+        - "Desenvolvimento de ferramentas, linguagem e civilizações."
+        - "Unificação para empreendimentos espaciais."
+    - nome: "Era da Expansão Planetária (Séculos XXI-XXII)"
+      periodo_desc: "Primeiras colônias fora da Terra (Marte, Lua)."
+      marcos:
+        - "Aumento significativo da população e tecnologia."
+        - "Início da pesquisa em propulsão de dobra."
+    - nome: "Era da Colonização Interestelar (Séculos XXIII-XXIV)"
+      periodo_desc: "Humanidade coloniza sistemas estelares próximos."
+      marcos:
+        - "Primeiro contato com outras espécies inteligentes."
+        - "Formação da Aliança de Estações Orbitais."
+    - nome: "Era das Estações Orbitais Avançadas (Século XXV - Atual)"
+      periodo_desc: "Desenvolvimento de estações autossuficientes como a Vigilância Solaris."
+      marcos:
+        - "IA e cibernética integradas à vida diária."
+        - "Humanidade coexiste em larga escala com raças alienígenas."
+        - "Pesquisa no espaço profundo como prioridade."
 
-cronologia_evolucao_humana:
-  - era: "Pré-Espacial (Origens)"
-    descricao: "Evolução biológica na Terra, desenvolvimento de ferramentas, linguagem e civilizações."
-  - era: "Expansão Planetária (Séculos XXI-XXII)"
-    descricao: "Primeiras viagens espaciais tripuladas, colônias fora da Terra, pesquisa em propulsão de dobra."
-  - era: "Colonização Interestelar (Séculos XXIII-XXIV)"
-    descricao: "Colonização de sistemas estelares próximos, primeiro contato com outras espécies."
-  - era: "Estações Orbitais Avançadas (Século XXV - Atual)"
-    descricao: "Desenvolvimento de estações autossuficientes, tecnologia cibernética e IA sofisticadas, coexistência em larga escala com alienígenas."
+grandes_civilizacoes:
+  id: civ_grandes
+  titulo: "Grandes Civilizações Galácticas Conhecidas"
+  descricao: >
+    A galáxia é habitada por diversas civilizações avançadas, cada uma com
+    suas próprias influências e papéis.
+  lista:
+    - id: "civ_fus"
+      nome: "A Federação Unida de Sistemas (FUS)"
+      raca_principal: "Humana"
+      foco: "Expansão pacífica, pesquisa científica, diplomacia, tecnologia."
+      ethos: "Liberdade individual, inovação, multiculturalismo."
+      descricao: >
+        Principal facção da humanidade e pilar da Aliança de Estações Orbitais.
+        Uma vasta e democrática aliança de sistemas com forte diplomacia e uma
+        robusta defesa.
+      localizacao_influencia: "Vasta rede de colônias, principalmente no Braço de Órion."
 
-design_naves_e_estacoes_orbitais:
+    - id: "civ_kryll"
+      nome: "Os Kryll"
+      raca_principal: "Insetoide"
+      foco: "Eficiência, expansão, engenharia biológica."
+      ethos: "Coletivismo, organização, lealdade ao Coletivo."
+      descricao: >
+        Antiga raça com uma sociedade coletivista. Construtores de vastas
+        colônias que se fundem em ecossistemas vivos. Pragmaticamente
+        cooperativos, mas implacáveis com ameaças.
+      localizacao_influencia: "Aglomerados estelares densos."
+
+    - id: "civ_xylos"
+      nome: "Os Silenciosos (Raça Xylos)"
+      raca_principal: "Baseada em energia"
+      foco: "Manipulação gravitacional, geoengenharia, comércio de recursos."
+      ethos: "Sabedoria profunda, pragmatismo, interações indiretas."
+      descricao: >
+        Civilização enigmática e sem forma física. Mestres na manipulação de
+        recursos planetários. Preferem atuar através de avatares de energia.
+      localizacao_influencia: "Controlam vastos cinturões de asteroides e planetas ricos em minerais."
+
+    - id: "civ_thal"
+      nome: "A Confraria Mercante de Th'al"
+      raca_principal: "Interespécies"
+      foco: "Comércio, exploração, lucro, negociação."
+      ethos: "Adaptabilidade, neutralidade em conflitos, lealdade ao lucro."
+      descricao: >
+        Vasta associação de comerciantes e exploradores. Sua influência econômica
+        é imensa, dominando redes de comércio e rotas de suprimentos.
+      localizacao_influencia: "Braço de Órion e braços espirais adjacentes."
+
+    - id: "civ_ktharr"
+      nome: "A Confederação K'tharr"
+      raca_principal: "Reptiliana"
+      foco: "Hierarquia, militarismo, honra, combate espacial."
+      ethos: "Força, astúcia, rituais e tradições de combate."
+      descricao: >
+        Conhecidos por sua disciplina e perícia em táticas de guerra.
+        Controlam setores estratégicos como uma força dissuasora.
+      localizacao_influencia: "Setores estratégicos da galáxia."
+
+    - id: "civ_lumina"
+      nome: "Os Enigmas de Lumina (Luminaris)"
+      raca_principal: "Etérea (pura energia)"
+      foco: "Guardiões de conhecimento, observação, intervenção sutil."
+      ethos: "Sábios ancestrais, compartilhamento seletivo de tecnologias perdidas."
+      descricao: >
+        Civilização ancestral que não controla territórios físicos.
+        Influenciam sutilmente e raramente se comunicam diretamente.
+      localizacao_influencia: "Não-territorial, influência sutil e pontual."
+
+estrutura_galaxia:
+  id: geo_galaxia
+  titulo: "Estrutura da Galáxia e Localização da Vigilância Solaris"
+  localizacao_estacao:
+    braco_espiral: "Braço de Órion"
+    sub_regiao: "A Margem da Espiral de Órion"
+    setor_estelar: "Setor da Nebulosa Égide"
+  pontos_referencia:
+    - nome: "Passagem de Solara"
+      descricao: "Corredor de navegação natural através de um campo de asteroides."
+    - nome: "Posto Avançado Echo-7"
+      descricao: "Pequena estação de reabastecimento da FUS."
+  sistema_ytaris:
+    id: sistema_ytaris
+    estrela_primaria:
+      nome: "Ytaris Primária"
+      classe: "K (Anã laranja-avermelhada)"
+      caracteristica: "Mais fria e de vida mais longa que um sol amarelo."
+    planetas:
+      - nome: "Ytaris-1, Ytaris-2, Ytaris-3"
+        tipo: "Rochosos Internos"
+        habitabilidade: "Inóspitos. Ytaris-2 é rico em minerais pesados."
+      - nome: "Ytaris-4"
+        tipo: "Gigante Gasoso"
+        habitabilidade: "Inabitável (pressão e temperatura extremas)."
+        composicao: "Hidrogênio, hélio, com traços de metano e amônia."
+        clima: "Ventos supersônicos e tempestades ciclônicas massivas."
+        relevancia: >
+          Ponto gravitacional da Estação Vigilância Solaris. Ideal para o
+          estudo de fenômenos atmosféricos e magnéticos.
+      - nome: "Ytaris-5, Ytaris-6"
+        tipo: "Gigantes de Gelo Externos"
+        caracteristica: "Possuem oceanos subsuperficiais, objeto de estudo."
+    outros:
+      - nome: "Cinturão de Asteroides de Kronos"
+        localizacao: "Entre Ytaris-3 e Ytaris-4"
+        descricao: "Fonte rica de metais e elementos raros, mas perigoso para navegação."
+
+engenharia_espacial:
+  id: eng_espacial
+  titulo: "Design de Naves e Estações Orbitais"
   propulsao_interestelar:
     - tipo: "Motores de Dobra"
-      descricao: "Mais comuns para viagens FTL, dobram o espaço-tempo."
+      uso: "Viagens mais rápidas que a luz, dobrando o espaço-tempo."
     - tipo: "Propulsores de Íons"
-      descricao: "Para manobras precisas, alta eficiência e baixa aceleração."
+      uso: "Manobras precisas e ajustes de órbita, alta eficiência."
     - tipo: "Motores de Singularidade"
-      descricao: "Raros e poderosos, usam micro-singularidades para impulsos massivos."
-  arquitetura_estacoes:
-    design_modular: "Permite que setores sejam conectados/desconectados, facilitando expansões e reparos."
-  sistemas_de_suporte_a_vida: "Reciclagem contínua de ar e água para manter ambientes habitáveis."
-  tecnologias_de_protecao:
-    escudos_defletores: "Campos de energia que desviam detritos e radiação."
-    sistemas_compensacao_inercia: "Anulam ou reduzem os efeitos da inércia durante acelerações bruscas."
+      uso: "Raros e poderosos, para saltos de longa distância em naves de grande porte."
+  design_estacoes:
+    - conceito: "Estações Orbitais Modulares"
+      descricao: "Módulos podem ser conectados/desconectados, facilitando expansões e reparos."
+    - conceito: "Sistemas de Suporte à Vida"
+      descricao: "Reciclagem contínua de ar e água para manter ambientes habitáveis."
+    - conceito: "Gerenciamento Ambiental"
+      descricao: "Controle de temperatura e pressão em cada compartimento."
+  tecnologias_protecao:
+    - nome: "Escudos Defletores"
+      funcao: "Campos de energia que desviam detritos, radiação e pequenos impactos."
+    - nome: "Sistemas de Compensação de Inércia"
+      funcao: "Anulam os efeitos da inércia durante acelerações bruscas."
+
+meta:
+  atualizacao_documento:
+    quando: >
+      Sempre que um novo conceito, tecnologia ou princípio fundamental do universo
+      for introduzido e se tornar conhecimento acessível.
+    onde: "Nas seções pertinentes ou criando novas seções."
+    como: "Informar o mestre do jogo para adicionar ou ajustar as informações."

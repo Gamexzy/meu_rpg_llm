@@ -1,51 +1,93 @@
-# Documento: Informações Espaciais das Estações
-# Versão: 1.59
-# Descrição: Centraliza informações espaciais de estações e planetas conhecidos.
+# ===================================================================
+# Documento de Informações Espaciais
+# Localização de Estações, Sistemas e Pontos de Referência - v1.59
+# ===================================================================
 
-localizacao_galactica_ampliada:
-  braco_espiral_principal: "Braço de Órion"
-  caracteristicas_braco: "Área densamente populada e ativa, onde a humanidade e aliados concentram atividades."
+localizacao_galactica:
+  braco_espiral: "Braço de Órion"
+  caracteristicas_braco: >
+    Uma área densamente populada e ativa, onde a humanidade (FUS) e outras
+    espécies da Aliança de Estações Orbitais concentram suas atividades.
+
   regiao_galactica: "A Margem da Espiral de Órion"
-  caracteristicas_regiao: "Menos densa que o centro do Braço, mas vibrante com colonização e comércio."
-  setor_estelar: "Setor da Nebulosa Égide"
-  caracteristicas_setor: "Caracterizado por densas e coloridas nebulosas que podem dificultar a navegação, mas abrigam fenômenos científicos únicos."
+  caracteristicas_regiao: >
+    Menos densa que o centro do Braço, mas vibrante, com alta atividade de
+    colonização e comércio. Possui rotas de tráfego bem estabelecidas.
 
-sistema_ytaris:
-  caracteristicas_gerais: "Sistema estelar calmo na borda interna da Nebulosa Égide, ideal para pesquisa."
-  estrela_primaria:
-    nome: "Ytaris Primária"
-    classificacao: "Classe K (Anã laranja-avermelhada)"
-  corpos_celestes:
-    - nome: "Ytaris-4"
-      tipo: "Gigante gasoso"
-      relevancia: "Ponto gravitacional central para a Vigilância Solaris."
-      estacao_orbital:
+  setor_estelar: "Setor da Nebulosa Égide"
+  caracteristicas_setor: >
+    Caracterizado por densas e coloridas nebulosas de gás e poeira.
+    Dificulta a navegação mas abriga fenômenos científicos únicos.
+
+mapa_espacial:
+  setor_local:
+    id: "setor_ytaris"
+    nome: "Sistema de Ytaris"
+    localizacao: "Na borda interna da Nebulosa Égide."
+    caracteristicas_gerais: >
+      Um sistema relativamente calmo, dominado pela estrela Ytaris Primária
+      (Classe K, anã laranja-avermelhada), cuja estabilidade é ideal para
+      operações de pesquisa.
+    corpos_celestes:
+      - id: "planeta_ytaris4"
+        nome: "Ytaris-4"
+        tipo: "Gigante gasoso"
+        caracteristicas: "Dominado por oceanos atmosféricos de cor turquesa e dourada. Inabitável na superfície."
+        relevancia: "Ponto gravitacional central para a Vigilância Solaris."
+      - id: "planetas_rochosos_internos"
+        nomes: ["Ytaris-1", "Ytaris-2", "Ytaris-3"]
+        tipo: "Planetas Rochosos Internos"
+        caracteristicas: "Inóspitos, varridos por ventos estelares. Ytaris-2 possui vastos depósitos de minerais pesados."
+      - id: "cinturao_kronos"
+        nome: "Cinturão de Asteroides de Kronos"
+        localizacao: "Entre Ytaris-3 e Ytaris-4."
+        caracteristicas: "Fonte rica de metais e elementos raros, mas perigoso e complexo para mineração."
+      - id: "gigantes_gelo_externos"
+        nomes: ["Ytaris-5", "Ytaris-6"]
+        tipo: "Gigantes de Gelo Externos"
+        caracteristicas: "Possuem atmosferas congeladas, núcleos metálicos e oceanos subsuperficiais sob estudo."
+
+    estacoes_instalacoes:
+      - id: "estacao_vigilancia_solaris"
         nome: "Vigilância Solaris"
         tipo: "Estação científica de médio porte"
-        posicao: "Órbita baixa e estável"
-        funcao: "Centro de pesquisa atmosférica, monitoramento orbital e operações técnicas."
-    - nome: "Ytaris-1, Ytaris-2, Ytaris-3"
-      tipo: "Planetas rochosos internos"
-      descricao: "Inóspitos. Ytaris-2 é notável por vastos depósitos de minerais pesados."
-    - nome: "Cinturão de Asteroides de Kronos"
-      localizacao: "Entre Ytaris-3 e Ytaris-4"
-      descricao: "Significativo cinturão de detritos, rico em metais e elementos raros."
-    - nome: "Ytaris-5, Ytaris-6"
-      tipo: "Gigantes de gelo externos"
-      descricao: "Atmosferas congeladas, com oceanos subsuperficiais sob estudo."
-  outras_instalacoes:
-    - "Postos de Mineração Automatizados (principalmente no cinturão de Kronos)"
-    - "Plataformas de Observação Remota (poucas e distantes)"
-    - "Naves de Suporte e Reabastecimento (rotativas, usam a Vigilância Solaris como hub)"
+        posicao: "Órbita baixa e estável em torno de Ytaris-4."
+        funcao: "Centro de pesquisa atmosférica, monitoramento orbital e operações técnicas. Hub para diversas espécies."
+        destaques: "Vistas panorâmicas de Ytaris-4 são uma característica marcante."
+      - id: "instalacoes_menores"
+        nome: "Outras Instalações no Sistema"
+        tipos:
+          - nome: "Postos de Mineração Automatizados"
+            localizacao: "Cinturão de Kronos e proximidades de Ytaris-2."
+            descricao: "Pequenas instalações, em sua maioria automatizadas, para extração de minerais."
+          - nome: "Plataformas de Observação Remota"
+            localizacao: "Dispersas pelo sistema."
+            descricao: "Estruturas mínimas para coleta de dados específicos. Não são habitáveis a longo prazo."
+          - nome: "Naves de Suporte (Rotativas)"
+            descricao: >
+              Naves de carga e reabastecimento (Confraria de Th'al, corporações) que
+              utilizam a Vigilância Solaris como hub temporário.
 
-origem_distante:
-  - nome: "Nova Aurora"
-    tipo: "Colônia espacial"
-    posicao: "Localização exata não especificada, distante de Ytaris."
-    caracteristicas: "Colônia populosa, focada no comércio, ambiente seguro e estável."
+  origem_distante:
+    - id: "colonia_nova_aurora"
+      nome: "Nova Aurora"
+      tipo: "Colônia espacial"
+      posicao: "Localização exata não especificada. Ponto de origem de Gabriel."
+      caracteristicas: "Colônia populosa e focada no comércio, conhecida por ser um ambiente seguro e estável."
 
-pontos_de_referencia_navegacao_proximos:
-  - nome: "Passagem de Solara"
-    descricao: "Corredor de navegação natural através de um campo de asteroides, usado por naves de carga e patrulhas da FUS."
-  - nome: "Posto Avançado Echo-7"
-    descricao: "Pequena estação de reabastecimento e monitoramento da FUS, a alguns dias de viagem da Vigilância Solaris."
+  pontos_referencia_navegacao:
+    - id: "nav_passagem_solara"
+      nome: "Passagem de Solara"
+      descricao: "Um corredor de navegação natural através de um campo de asteroides, utilizado por naves de carga e patrulhas da FUS."
+    - id: "nav_posto_echo7"
+      nome: "Posto Avançado Echo-7"
+      descricao: "Pequena estação de reabastecimento e monitoramento da FUS, a alguns dias de viagem da Vigilância Solaris."
+
+meta:
+  atualizacao_documento:
+    titulo: "Tutorial de Atualização deste Documento"
+    instrucoes: >
+      Este documento centraliza a geografia espacial. Deve ser atualizado
+      se novos planetas, sistemas, rotas ou outros pontos de referência
+      forem descobertos. Informe sobre as novas descobertas para que
+      sejam adicionadas ao mapa.

@@ -1,72 +1,108 @@
-# Documento: Layout Interno da Estação Vigilância Solaris
-# Versão: 1.61
-# Descrição: Mapa detalhado da estação, seus setores, acessos e tecnologias integradas.
+# ===================================================================
+# Documento de Layout Interno da Estação Vigilância Solaris
+# Níveis, Setores e Tecnologias - v1.61
+# ===================================================================
 
-estrutura_geral:
-  niveis_principais: 3
-  conexoes: "Rede eficiente de elevadores e escadas."
+layout_estacao:
+  nome: "Vigilância Solaris"
+  estrutura_geral:
+    niveis_principais: 3
+    conexoes: "Elevadores e escadas interligam todos os níveis."
 
-setores_e_pontos_interesse:
-  - nome: "Corredor Leste"
-    acesso_a: ["Refeitório Central", "Salas de Descanso", "Varanda de Observação Lateral"]
-  - nome: "Corredor Técnico Norte"
-    acesso_a: ["Bloco Beta (área de trabalho de Gabriel)", "Sala de Manutenção", "Terminal de Status Ambiental"]
-  - nome: "Biblioteca e Arquivos Digitais"
-    localizacao: "Próxima ao centro da estação."
-    descricao: "Centro de conhecimento silencioso com vastos arquivos."
-    secoes_principais:
-      - "Arquivos de Pesquisa Científica"
-      - "Manuais Operacionais e Regulamentos"
-      - "História e Cultura Galáctica"
-      - "Tecnologia e Engenharia Aplicada"
-      - "Educação e Treinamento"
-      - "Comunicações e Mídia"
-      - "Seção de Navegação e Rotas Espaciais"
-  - nome: "Doca de Carga (Bloco B)"
-    descricao: "Área operacional movimentada com fluxo constante de materiais."
-  - nome: "Refeitório Central (Setor Delta 1)"
-    descricao: "Local de refeições com buffet e janelas panorâmicas para o espaço."
-  - nome: "Setor Comercial Delta & Mercado de Tecnologia do Pavilhão 3"
-    descricao: "Locais para encontrar fornecedores autorizados de tecnologia."
-  - nome: "Alojamento Unidade 14-B (Setor de Dormitórios)"
-    localizacao: "Nível Inferior"
-    descricao: "O quarto de Gabriel, equipado com terminal pessoal."
-  - nome: "Laboratório Atmosférico 4B, Bloco Beta"
-    descricao: "Espaço amplo para pesquisa e monitoramento de Ytaris-4, com cilindros de contenção e painéis holográficos."
-    inclui:
-      nome: "Estação de Treinamento"
-      interface: "Simulações de Ytaris-4, com indicadores visuais para naves e pontos de coleta."
+  setores_pontos_interesse:
+    - id: "setor_corredor_leste"
+      nome: "Corredor Leste"
+      localizacao: "Próximo à Ala Leste - Setor de Triagem."
+      acessos:
+        - "Refeitório Central"
+        - "Salas de descanso"
+        - "Varanda de observação lateral"
 
-tecnologias_essenciais_estacao:
-  tecnologia_estrutural_e_ambiental:
-    - nome: "Gravidade Artificial"
-      descricao: "Criada por rotação dos anéis habitáveis e estabilizadores de massa."
-    - nome: "Controle Ambiental Dinâmico"
-      descricao: "Temperatura, umidade e pressão ajustadas por zonas automaticamente."
-    - nome: "Escudos de Micrometeoritos"
-      descricao: "Camadas inteligentes de material adaptativo que reforçam as paredes externas."
-  tecnologia_de_informacao_e_interface:
-    - nome: "Terminais Inteligentes"
-      descricao: "Distribuídos pela estação, respondem a voz e toques."
-    - nome: "Pulseiras de Identificação Integrada (IIP)"
-      descricao: "Identificação, carteira, acesso e monitor de saúde."
-    - nome: "Sistemas de Comunicação Local e Externa"
-      descricao: "Baseados em transmissão quântica para comunicações externas quase sem atraso."
-  tecnologia_operacional_e_cientifica:
-    - nome: "Laboratórios Atmosféricos e Biogênicos"
-      descricao: "Capazes de simular condições ambientais de planetas estudados."
-    - nome: "Drones de Manutenção e Inspeção"
-      descricao: "Cuidam da limpeza externa, inspeção e pequenas manutenções."
-    - nome: "IA Setorial Auxiliar"
-      descricao: "Várias IAs menores que coordenam setores específicos (pesquisa, engenharia, etc.)."
-  tecnologia_pessoal_e_de_suporte:
-    - nome: "Assistentes Pessoais"
-      descricao: "Vão de simples agentes de voz a unidades de IA portátil com autonomia."
-    - nome: "Refeitórios Automatizados com Impressão Nutricional"
-      descricao: "Alimentos impressos com base em nutrientes e dados biométricos."
-    - nome: "Alojamentos Inteligentes"
-      descricao: "Detectam presença e ajustam o ambiente (luz, temperatura)."
+    - id: "setor_corredor_tecnico_norte"
+      nome: "Corredor Técnico Norte"
+      acessos:
+        - "Bloco Beta (área de trabalho de Gabriel)"
+        - "Sala de manutenção"
+        - "Terminal de status ambiental"
 
-areas_restritas:
-  - "Setor de Pesquisa Avançada"
-  - "Sala de Servidores Centrais"
+    - id: "setor_biblioteca_arquivos"
+      nome: "Biblioteca e Arquivos Digitais"
+      localizacao: "Próxima ao centro da estação."
+      descricao: "Um centro de conhecimento silencioso com acesso a registros históricos, dados planetários e arquivos da estação."
+      subsecoes:
+        - "Arquivos de Pesquisa Científica"
+        - "Manuais Operacionais e Regulamentos"
+        - "História e Cultura Galáctica"
+        - "Tecnologia e Engenharia Aplicada"
+        - "Educação e Treinamento"
+        - "Comunicações e Mídia"
+        - "Navegação e Rotas Espaciais"
+
+    - id: "setor_doca_carga_b"
+      nome: "Doca de Carga (Bloco B)"
+      descricao: "Área operacional movimentada com fluxo constante de materiais. Acesso não restrito, mas de trabalho intenso."
+
+    - id: "setor_refeitorio_delta1"
+      nome: "Refeitório Central (Setor Delta 1)"
+      descricao: "Local de refeições com buffet rotativo e amplas janelas panorâmicas."
+
+    - id: "setor_comercial_delta"
+      nome: "Setor Comercial Delta"
+      descricao: "Local para encontrar fornecedores autorizados de tecnologia, como assistentes pessoais."
+
+    - id: "setor_mercado_pavilhao3"
+      nome: "Mercado de Tecnologia do Pavilhão 3"
+      descricao: "Outro local para encontrar fornecedores de tecnologia."
+
+    - id: "setor_alojamento_14b"
+      nome: "Alojamento Unidade 14-B"
+      localizacao: "Setor de Dormitórios - Nível Inferior."
+      descricao: "O quarto de Gabriel, equipado com terminal pessoal."
+
+    - id: "setor_lab_atmosferico_4b"
+      nome: "Laboratório Atmosférico 4B, Bloco Beta"
+      descricao: "Espaço amplo e funcional para pesquisa de Ytaris-4. Contém cilindros de contenção, painéis de controle e projeções holográficas."
+      componentes:
+        - "Estação de Treinamento com interface para simulações."
+
+  tecnologias_essenciais:
+    tecnologia_estrutural_ambiental:
+      - nome: "Gravidade Artificial"
+        descricao: "Criada por rotação controlada dos anéis habitáveis e estabilizadores de massa."
+      - nome: "Controle Ambiental Dinâmico"
+        descricao: "Temperatura, umidade e pressão ajustadas por zonas automaticamente."
+      - nome: "Escudos de Micrometeoritos"
+        descricao: "Camadas de material adaptativo que reforçam as paredes externas."
+    tecnologia_informacao_interface:
+      - nome: "Terminais Inteligentes"
+        descricao: "Distribuídos pela estação, respondem a voz e toque."
+      - nome: "Pulseiras de Identificação Integrada (IIP)"
+        descricao: "Serve como identidade, carteira, chave de acesso e monitor de saúde."
+      - nome: "Sistemas de Comunicação"
+        descricao: "Comunicação externa quântica (quase sem atraso) e redes internas isoladas."
+    tecnologia_operacional_cientifica:
+      - nome: "Laboratórios Especializados"
+        descricao: "Capazes de simular condições ambientais de planetas estudados."
+      - nome: "Drones de Manutenção"
+        descricao: "Pequenos e ágeis, cuidam da limpeza e inspeção externa."
+      - nome: "IA Setorial Auxiliar"
+        descricao: "IA menores que coordenam setores específicos (pesquisa, engenharia, etc.)."
+    tecnologia_pessoal_suporte:
+      - nome: "Assistentes Pessoais"
+        descricao: "Vão de agentes de voz simples a unidades de IA portáteis com autonomia."
+      - nome: "Refeitórios Automatizados"
+        descricao: "Alguns alimentos são impressos com base em nutrientes e dados biométricos."
+      - nome: "Alojamentos Inteligentes"
+        descricao: "Ajustam automaticamente luz e temperatura, e podem sugerir repouso."
+
+  areas_restritas:
+    - "Setor de Pesquisa Avançada"
+    - "Sala de Servidores Centrais"
+
+meta:
+  atualizacao_documento:
+    titulo: "Tutorial de Atualização deste Documento"
+    instrucoes: >
+      Este documento funciona como um mapa detalhado da Vigilância Solaris.
+      Deve ser atualizado se novas áreas, setores ou tecnologias forem descobertas.
+      Informe sobre as novas descobertas para que sejam adicionadas.

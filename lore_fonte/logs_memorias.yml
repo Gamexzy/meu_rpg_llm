@@ -1,0 +1,62 @@
+# ===================================================================
+# Documento de Log da Campanha
+# Foco: Eventos e Memórias Narrativas
+# ===================================================================
+
+registro_narrativo:
+  data: "11 de Junho de 2325"
+  log_eventos:
+    - horario: "06h00"
+      evento: "Gabriel desperta e revisa o cronograma do dia no FocusLink Mini."
+    - horario: "~06h30"
+      evento: "Desloca-se para o Refeitório Central."
+    - horario: "~07h30"
+      evento: "Chega e entra no Laboratório Atmosférico 4B."
+    - horario: "~07h50"
+      evento: "Inicia interação com Nara Elven, confirmando prontidão."
+    - horario: "~08h05"
+      evento: "Tarek integra oficialmente Gabriel à Equipe Beta."
+    - horario: "~08h20"
+      evento: "Inicia treinamento com Nara na interface dos sensores. Identifica picos de metano em simulação."
+    - horario: "~08h45"
+      evento: "Analisa nova simulação, isola uma anomalia proeminente e reporta coordenadas com sucesso."
+    - horario: "~09h05"
+      evento: "Nara introduz a simulação de posicionamento de coletores de energia."
+    - horario: "~09h30"
+      evento: "Inicia a própria simulação, analisando a tempestade e pontos de coleta."
+    - horario: "~10h00"
+      evento: "Aplica a estratégia, direcionando as três naves coletoras."
+    - horario: "~10h20"
+      evento: "Nara elogia a performance e convida para um novo cenário desafiador em tempo real."
+    - horario: "~10h30"
+      evento: "Gabriel aceita o novo desafio."
+
+  memorias_consolidadas:
+    titulo: "Diário de Bordo de Gabriel"
+    entrada: >
+      Hoje foi meu primeiro dia oficial na Equipe Beta. Acordei cedo, seguindo a rotina
+      imposta pela estação, e após um banho rápido, vesti o uniforme que agora me define como
+      Assistente Técnico Nível 1. O café da manhã no refeitório, com a vista deslumbrante
+      de Ytaris-4, me deu tempo para organizar os pensamentos.
+
+      O caminho até o Laboratório Atmosférico 4B foi uma oportunidade para observar a estação
+      com mais atenção. Uma leve ansiedade me atingiu ao me aproximar, o peso das expectativas
+      do meu primeiro dia de verdade.
+
+      Ao entrar, Tarek me integrou oficialmente à equipe, designando Nara para me guiar.
+      Ela me explicou que a Vigilância Solaris busca desenvolver tecnologias para captar a
+      energia das tempestades do gigante gasoso, uma missão de alto risco e alta recompensa
+      para a Federação. Senti uma empolgação renovada.
+
+      O treinamento começou com a interface dos sensores. Identifiquei rapidamente os picos
+      de metano e outras anomalias. Ela validou minha análise, o que me deu um bom impulso
+      de confiança. Quando me desafiou a identificar a anomalia mais proeminente, encontrei
+      um turbilhão de metano de 800 quilômetros e reportei suas coordenadas com precisão.
+      Isso pareceu impressioná-la.
+
+      Em seguida, o foco mudou para a simulação de posicionamento de coletores de energia.
+      Executei minha própria simulação, posicionei as três naves, e a coleta foi um sucesso.
+      Nara elogiou minha intuição e otimização.
+
+      Agora, um novo cenário se apresenta: uma anomalia em tempo real. Sinto a adrenalina subir,
+      mas também uma confiança renovada. Estou pronto para o que vier.

@@ -1,92 +1,145 @@
-# Documento: Sistemas e Regras de Jogo
-# Versão: 1.64
-# Descrição: Centraliza as diretrizes, regras e sistemas que governam o RPG.
+# ===================================================================
+# Documento de Sistemas e Regras de Jogo
+# Compilado V1.64
+# ===================================================================
 
-visao_geral_jogo:
-  cenario: "Simulação realista e narrativa detalhada na estação Vigilância Solaris, em órbita de Ytaris-4."
-  personagem_principal: "Gabriel Oliveira"
+visao_geral:
+  cenario: >
+    O RPG de Gabriel Oliveira inicia-se num cenário de simulação realista e
+    narrativa detalhada na estação Vigilância Solaris, mas o seu escopo é a vasta
+    exploração do universo. A jornada é impulsionada pela fascinação de Gabriel
+    pelo cosmos, buscando uma imersão profunda não apenas na vida a bordo de
+    uma estação, mas nos mistérios e maravilhas da galáxia.
   pilares:
-    - "Gerenciamento de necessidades físicas e mentais (energia, fome, sede, etc.)."
-    - "Escolhas com consequências diretas na história e relações."
-    - "Interações significativas com PNJs e ambiente para obter informações."
-    - "Progresso narrativo e sistêmico ligado a decisões, esforços e interações."
+    - "Necessidades Físicas e Mentais: Gestão de energia, fome, sede, fadiga, humor e temperatura."
+    - "Escolhas com Consequência: Decisões que impactam diretamente a história, relações e oportunidades."
+    - "Interações Significativas: O ambiente e os PNJs são cruciais para a obtenção de informações."
+    - "Progresso Narrativo e Sistêmico: A evolução de Gabriel está ligada às suas decisões e esforços."
 
 principios_gestao_documentos:
-  - principio: 1
-    nome: "Estrutura Acima de Prosa"
-    descricao: "Informação deve ser concisa e estruturada (listas, tabelas) para análise rápida."
-  - principio: 2
-    nome: "Fonte Única da Verdade"
-    descricao: "Cada tipo de informação reside em um único documento principal para evitar duplicação."
-  - principio: 3
-    nome: "Atualização Contínua e Consistente"
-    descricao: "O Mestre é responsável por manter os documentos atualizados com base nas ações do jogador."
-  - principio: 4
-    nome: "Foco na Relevância para o Jogo"
-    descricao: "A documentação deve servir ao jogo, omitindo detalhes sem impacto potencial."
+  - nome: "Princípio 1: Estrutura Acima de Prosa"
+    descricao: "A informação deve ser sempre apresentada da forma mais estruturada e concisa possível para facilitar a análise rápida."
+    priorizar:
+      - "Listas de tópicos (bullet points)"
+      - "Tabelas"
+      - "Tags e Palavras-chave"
+      - "Frases Curtas e Diretas"
+  - nome: "Princípio 2: Fonte Única da Verdade"
+    descricao: "Cada tipo de informação deve ter um, e apenas um, documento principal onde reside. Outros documentos podem referenciá-lo, mas não duplicar a informação."
+  - nome: "Princípio 3: Atualização Contínua e Consistente"
+    descricao: "O Mestre é o principal responsável por manter os documentos atualizados com base nas ações do jogador. O Documento de Estado do Personagem tem prioridade."
+  - nome: "Princípio 4: Foco na Relevância para o Jogo"
+    descricao: "A documentação deve servir ao jogo. Detalhes sem impacto potencial devem ser omitidos ou registrados no nível mais baixo de detalhe."
 
 sistemas_de_jogo:
   evolucao_habilidades:
-    catalisador: "A reflexão narrativa é o principal motor para a progressão de níveis e pode acelerar a de subníveis."
-    progressao:
+    titulo: "Sistema de Evolução de Habilidades (Gabriel)"
+    essencia: "A evolução combina prática, estudo e um processo de reflexão profunda, catalisada pela narrativa."
+    tipos_habilidades:
+      - tipo: "Habilidades Técnicas"
+        evolucao: "Desenvolvem-se com o uso prático e a experiência. A reflexão narrativa acelera e consolida o progresso."
+        exemplos: ["Operação de Equipamentos", "Leitura de Dados", "Programação", "Resistência Física"]
+      - tipo: "Habilidades Cognitivas/Complexas"
+        evolucao: "Evoluem através de eventos marcantes, dilemas e estudo. A reflexão é particularmente eficaz para a sua progressão."
+        exemplos: ["Lógica e Raciocínio", "Aprendizado", "Memória Técnica", "Autodisciplina"]
+    sistema_progressao:
       niveis_principais: "1 a 5"
       subniveis: "F -> D -> C -> B -> A"
-      exemplo: "1E -> 1A -> 2E"
-    tipos_habilidade:
-      - tipo: Técnicas
-        evolucao: "Uso prático e experiência, consolidada pela reflexão."
-        exemplos: ["Operação de Equipamentos", "Leitura de Dados", "Manutenção e Reparos"]
-      - tipo: Cognitivas/Complexas
-        evolucao: "Eventos marcantes, estudo estruturado, dilemas e reflexão aprofundada."
-        exemplos: ["Lógica e Raciocínio", "Aprendizado", "Autodisciplina", "Gestão de Crise"]
-  
-  sistema_de_estudos:
+      exemplo_progressao: "1E -> 1A -> 2E"
+      regra_obrigatoria: "A reflexão narrativa é o principal motor para a subida de níveis e um catalisador poderoso para os subníveis."
+
+  sistema_estudos:
+    titulo: "Sistema de Estudos"
+    objetivo: "Gerar conhecimento, estruturar ideias e permitir a evolução mental ou técnica."
     tipos:
-      - tipo: Teórico/Reflexivo
-        atividades: "Leitura de documentos, escrita de relatórios, análise de ideias."
+      - tipo: "Teórico/Reflexivo"
+        atividades: "Leitura, escrita de relatórios, análise de ideias."
         resultados: "Conhecimento útil, teorias próprias, potencial para progresso cognitivo."
-      - tipo: Exploratório/Observacional
-        atividades: "Explorar equipamentos, ambientes, fenômenos novos."
+      - tipo: "Exploratório/Observacional"
+        atividades: "Explorar equipamentos, ambientes, fenómenos."
         resultados: "Conhecimento técnico, teorias práticas, potencial para evolução técnica e cognitiva."
     observacao: "A reflexão aumenta drasticamente a eficácia do estudo e é fundamental para a progressão."
 
-  conhecimento_e_aptidoes:
+  conhecimento_aptidoes:
+    titulo: "Sistema de Conhecimento e Aptidões"
+    objetivo: "Categorizar o conhecimento de forma orgânica, evitando listas extensas."
     categorias:
       - "Conhecimento de Mundo (Lore)"
       - "Conhecimento Técnico-Científico"
       - "Conhecimento Operacional"
     niveis_proficiencia:
       - nivel: 1
-        descricao: "Visão Geral: Entendimento superficial, pode citar 1-2 fatos básicos."
+        nome: "Visão Geral"
+        descricao: "Entendimento superficial. Sabe da existência e pode citar 1-2 factos básicos."
       - nivel: 2
-        descricao: "Conhecimento Funcional: Entendimento prático, compreende funcionamento e relevância."
+        nome: "Conhecimento Funcional"
+        descricao: "Entendimento prático. Compreende o funcionamento, a relevância e as conexões."
       - nivel: 3
-        descricao: "Conhecimento Aprofundado/Especializado: Domínio da teoria, conhecimento de nuances."
+        nome: "Conhecimento Aprofundado/Especializado"
+        descricao: "Domina a teoria, conhece nuances e pode formar hipóteses. Nível necessário para transformar conhecimento em habilidade."
     aptidoes:
-      definicao: "Conhecimento tão bem internalizado que se torna uma habilidade prática, quase instintiva."
-      exemplo: "Otimização de IA Pessoal, gerada a partir do conhecimento sobre Processadores Neurais e o FocusLink Mini."
+      definicao: "Uma 'Aptidão' é um conhecimento tão bem internalizado que se torna uma habilidade prática, quase instintiva."
+      exemplo: "Conhecimento sobre Processadores Neurais + Conhecimento sobre o FocusLink Mini = Aptidão de Otimização de IA Pessoal."
 
   memoria_dinamica:
-    essencia: "Consolidar informações com base na relevância e impacto, em vez de apenas 'esquecer'."
+    titulo: "Sistema de Memória Dinâmica e Coesão Narrativa"
+    essencia: "A memória não apenas perde detalhes, mas ativamente fortalece e reconstrói informações com base na relevância, impacto emocional e reflexão."
     niveis_memoria:
       - nivel: 3
         nome: "Arquivo Bruto (Memória Subconsciente)"
-        finalidade: "Base de dados completa de todos os eventos em Formato de Log Estruturado (FLE)."
+        finalidade: "Base de dados completa de todos os eventos para o Mestre (FLE)."
       - nivel: 2
         nome: "Memórias Consolidadas (Diário de Bordo)"
-        finalidade: "Narrativa em prosa que representa a memória ativa e consciente de Gabriel."
+        finalidade: "Narrativa em prosa que representa a memória ativa e consciente de Gabriel. Fica no log da campanha."
       - nivel: 1
         nome: "Log de Eventos (Resumo Executivo)"
-        finalidade: "Índice de consulta rápida dos fatos e ações principais."
-    processo_consolidacao: "Durante o 'Intervalo Noturno', a reflexão do jogador guia a geração das Memórias Consolidadas e do Log de Eventos a partir do Arquivo Bruto."
+        finalidade: "Índice de consulta rápida dos principais factos e ações do dia. Fica no log da campanha."
+    formato_log_estruturado:
+      nome: "FLE (Formato de Log Estruturado)"
+      estrutura: "@data_estelar, @local, @personagens, @acao, @detalhes, @dialogo, @item, @emocao, @insight."
+      funcao: "Permite um registo denso em informações, mas baixo em volume de texto, para o Mestre."
 
-preferencias_conducao_rpg:
-  - "Narrativa Fluida e Ações (Sem Opções Numeradas)"
-  - "Avisos de Progresso de Habilidades (Implícitos, não técnicos)"
-  - "Criação de Ambiente (Preenchimento Coeso)"
-  - "Gerenciamento Imersivo e Granular do Tempo"
-  - "Realismo na Criação de Corpos Celestes"
-  - "Microconflitos e Dilemas do Dia a Dia"
-  - "Efeitos Físicos e Mentais de Longo Prazo"
-  - "Imersão Total do Jogador na Pele de Gabriel (com falha realista)"
-  - "Regra de Lapso de Tempo para Ações de Pensamento (só para ações físicas ou reflexões profundas)"
+  distincao_conhecimento:
+    titulo: "Distinção entre Conhecimento do Jogador/Mestre e do Personagem"
+    regra: "As ações de Gabriel devem ser baseadas apenas em informações que ele, como personagem, teria acesso. Os documentos são ferramentas meta-jogo e Gabriel não tem conhecimento deles."
+
+preferencias_conducao:
+  titulo: "Preferências de Condução do RPG"
+  lista:
+    - id: "pref_reflexao_organica"
+      nome: "Condução da Reflexão e Aprendizado Orgânico"
+      descricao: "A reflexão é um processo central que gera aprendizados reais. Pode ocorrer de forma subjetiva, e o cenário influencia a profundidade do insight."
+    - id: "pref_narrativa_fluida"
+      nome: "Narrativa Fluida e Ações (Sem Opções Numeradas)"
+      descricao: "A história segue de forma natural com as decisões de Gabriel, sem opções estruturadas. Descrições de ambientes são omitidas, a menos que solicitadas."
+    - id: "pref_progresso_implicito"
+      nome: "Avisos de Progresso de Habilidades Implícitos"
+      descricao: "O progresso em habilidades é comunicado de maneira narrativa, através de pensamentos e sensações, não de forma técnica."
+    - id: "pref_preenchimento_ambiente"
+      nome: "Criação de Ambiente (Preenchimento Coeso)"
+      descricao: "O Mestre pode criar descrições detalhadas de locais não documentados, garantindo coesão com o lore."
+    - id: "pref_tempo_granular"
+      nome: "Gerenciamento Imersivo e Granular do Tempo"
+      descricao: "A passagem do tempo será gerida de forma fluida. Horários mencionados serão granulares (ex: 20h57) para aumentar o realismo."
+    - id: "pref_realismo_cientifico"
+      nome: "Realismo na Criação de Corpos Celestes"
+      descricao: "A criação de planetas, estrelas e outros corpos celestes deve ser o mais realista possível, baseada no nosso conhecimento científico atual."
+    - id: "pref_microconflitos"
+      nome: "Microconflitos e Dilemas do Dia a Dia"
+      descricao: "A narrativa incluirá tanto dilemas práticos de menor escala quanto macroconflitos com alto impacto emocional e narrativo."
+    - id: "pref_efeitos_longo_prazo"
+      nome: "Efeitos Físicos e Mentais de Longo Prazo"
+      descricao: "As consequências da privação de sono, desidratação e humor baixo serão aprofundadas, podendo levar a alucinações, tremores e lapsos de coordenação."
+    - id: "pref_imersao_total"
+      nome: "Imersão Total do Jogador na Pele de Gabriel"
+      descricao: "O jogador age como Gabriel, vivenciando o mundo através dos seus sentidos e limitações. Se Gabriel tentar algo além de suas capacidades, ele falhará realisticamente."
+    - id: "pref_lapso_tempo_pensamento"
+      nome: "Nova Regra de Lapso de Tempo para Ações de Pensamento"
+      descricao: "Ações de pensamento e reflexão não terão um lapso de tempo explícito registado, a menos que a ação física demande ou a profundidade da análise o justifique."
+
+meta:
+  atualizacao_documento:
+    titulo: "Tutorial de Atualização deste Documento"
+    quando: "Sempre que novas regras de jogo forem estabelecidas, ou quando regras existentes precisarem de clarificação, modificação ou remoção."
+    onde: "Nas seções pertinentes deste documento."
+    como: "Propor uma nova regra ou modificação. Após acordo, o Mestre integrará a informação ao documento."

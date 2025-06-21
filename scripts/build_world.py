@@ -4,8 +4,9 @@ import os
 import json
 
 # --- Configuração de Caminhos ---
+# Mantém a mesma estrutura de pastas que você definiu
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Assumindo que o script está em /scripts, volta um nível
+# Assumindo que o script está em /scripts, volta um nível para a raiz do projeto
 PROJECT_ROOT = os.path.dirname(BASE_DIR) 
 LORE_SOURCE_DIR = os.path.join(PROJECT_ROOT, 'lore_fonte')
 PROD_DATA_DIR = os.path.join(PROJECT_ROOT, 'dados_em_producao')
@@ -13,14 +14,17 @@ DB_PATH = os.path.join(PROD_DATA_DIR, 'estado.db')
 
 def setup_database():
     """Cria a estrutura completa da base de dados relacional (SQLite)."""
+    # Cria o diretório de produção se ele não existir
     os.makedirs(PROD_DATA_DIR, exist_ok=True)
+    # Remove a base de dados antiga para garantir uma construção limpa
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # --- Tabelas de Entidades Canónicas ---
+    # --- Tabela para Entidades Canónicas (Personagens) ---
+    # Armazena o perfil completo em YAML para flexibilidade futura.
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS personagens (
             id TEXT PRIMARY KEY,
@@ -29,71 +33,55 @@ def setup_database():
             perfil_yaml TEXT
         )
     ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS locais (
-            id TEXT PRIMARY KEY,
-            nome TEXT NOT NULL,
-            tipo TEXT,
-            perfil_yaml TEXT
-        )
-    ''')
-    # Adicionar tabelas para tecnologias e facções aqui no futuro
+
+    # Adicionar aqui tabelas para outras entidades canónicas (locais, tecnologias) no futuro.
 
     # --- Tabelas de Estado Dinâmico do Jogador ---
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS personagem_estado (
-            id INTEGER PRIMARY KEY,
-            personagem_id TEXT UNIQUE,
-            nome TEXT,
+            personagem_id TEXT PRIMARY KEY,
             localizacao_atual_id TEXT,
             data_estelar TEXT,
             horario_atual TEXT,
             creditos_conta_principal INTEGER,
             creditos_pulseira_iip INTEGER,
-            estado_fome TEXT,
-            estado_sede TEXT,
-            estado_cansaco TEXT,
-            estado_humor TEXT
+            fome TEXT,
+            sede TEXT,
+            cansaco TEXT,
+            humor TEXT,
+            FOREIGN KEY (personagem_id) REFERENCES personagens(id)
         )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            personagem_id TEXT,
-            item_id TEXT,
-            quantidade INTEGER,
-            FOREIGN KEY (personagem_id) REFERENCES personagem_estado(personagem_id)
+            personagem_id TEXT NOT NULL,
+            nome_item TEXT NOT NULL,
+            quantidade INTEGER DEFAULT 1,
+            FOREIGN KEY (personagem_id) REFERENCES personagens(id)
         )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS habilidades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            personagem_id TEXT,
-            nome_habilidade TEXT,
+            personagem_id TEXT NOT NULL,
+            nome_habilidade TEXT NOT NULL,
             tipo TEXT,
-            nivel INTEGER,
-            subnivel TEXT,
+            nivel TEXT,
             observacoes TEXT,
-            FOREIGN KEY (personagem_id) REFERENCES personagem_estado(personagem_id)
+            UNIQUE(personagem_id, nome_habilidade),
+            FOREIGN KEY (personagem_id) REFERENCES personagens(id)
         )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS conhecimentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            personagem_id TEXT,
-            topico TEXT,
+            personagem_id TEXT NOT NULL,
+            topico TEXT NOT NULL,
             categoria TEXT,
             nivel_proficiencia INTEGER,
-            FOREIGN KEY (personagem_id) REFERENCES personagem_estado(personagem_id)
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS log_eventos (
-            id TEXT PRIMARY KEY,
-            data_estelar TEXT,
-            local_id TEXT,
-            acao TEXT,
-            detalhes_json TEXT
+            UNIQUE(personagem_id, topico),
+            FOREIGN KEY (personagem_id) REFERENCES personagens(id)
         )
     ''')
 
@@ -102,7 +90,7 @@ def setup_database():
     print(f"SUCESSO: Base de dados configurada em '{DB_PATH}'.")
 
 def load_yaml_file(file_path):
-    """Carrega um ficheiro YAML e retorna os seus dados."""
+    """Carrega um ficheiro YAML de forma segura e retorna os seus dados."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
@@ -119,75 +107,88 @@ def build_world():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # --- Processar Entidades Canónicas ---
-    # Personagens
-    personagens_data = load_yaml_file(os.path.join(LORE_SOURCE_DIR, 'entidades_personagens.yml'))
-    if personagens_data:
-        personagens_para_inserir = [
-            (p['personagem']['id'], p['personagem']['nome_completo'], p['personagem']['tipo'], yaml.dump(p['personagem']))
-            for p in personagens_data if 'personagem' in p
-        ]
-        cursor.executemany('INSERT INTO personagens (id, nome_completo, tipo, perfil_yaml) VALUES (?, ?, ?, ?)', personagens_para_inserir)
-        print(f"INFO: {len(personagens_para_inserir)} personagens inseridos.")
+    # --- 1. Processar Personagens (Fonte Canónica) ---
+    personagens_data = load_yaml_file(os.path.join(LORE_SOURCE_DIR, 'personagens.yml'))
+    if personagens_data and 'personagens' in personagens_data:
+        personagens_para_inserir = []
+        habilidades_para_inserir = []
 
-    # Locais
-    locais_data = load_yaml_file(os.path.join(LORE_SOURCE_DIR, 'entidades_locais.yml'))
-    if locais_data:
-        locais_para_inserir = [
-            (l['local']['id'], l['local']['nome'], l['local']['tipo'], yaml.dump(l['local']))
-            for l in locais_data if 'local' in l
-        ]
-        cursor.executemany('INSERT INTO locais (id, nome, tipo, perfil_yaml) VALUES (?, ?, ?, ?)', locais_para_inserir)
-        print(f"INFO: {len(locais_para_inserir)} locais inseridos.")
+        for p_data in personagens_data['personagens']:
+            # Adiciona o personagem à lista para inserção na tabela 'personagens'
+            personagens_para_inserir.append(
+                (p_data['id'], p_data['nome'], p_data['tipo'], yaml.dump(p_data))
+            )
+            
+            # Se o personagem for o Gabriel, extrai as suas habilidades para a tabela 'habilidades'
+            if p_data['id'] == 'gabriel_oliveira' and 'ficha_habilidades' in p_data:
+                for tipo, hab_list in p_data['ficha_habilidades'].items():
+                    for hab in hab_list:
+                        habilidades_para_inserir.append(
+                            (p_data['id'], hab['nome'], tipo, hab['nivel'], hab.get('observacoes', ''))
+                        )
 
-    # --- Processar Estado Inicial do Jogador ---
-    estado_inicial_data = load_yaml_file(os.path.join(LORE_SOURCE_DIR, 'estado_inicial_jogador.yml'))
-    if estado_inicial_data:
-        char_id = estado_inicial_data['personagem_id']
-        estado = estado_inicial_data['estado']
+        cursor.executemany(
+            'INSERT INTO personagens (id, nome_completo, tipo, perfil_yaml) VALUES (?, ?, ?, ?)', 
+            personagens_para_inserir
+        )
+        cursor.executemany(
+            'INSERT INTO habilidades (personagem_id, nome_habilidade, tipo, nivel, observacoes) VALUES (?, ?, ?, ?, ?)',
+            habilidades_para_inserir
+        )
+        print(f"INFO: {len(personagens_para_inserir)} personagens e {len(habilidades_para_inserir)} habilidades canónicas inseridas.")
+
+    # --- 2. Processar Estado Inicial do Jogador e Lore Adicional ---
+    # Usando o seu 'status_atual_campanha_log.yml' como fonte para o estado inicial
+    estado_data = load_yaml_file(os.path.join(LORE_SOURCE_DIR, 'status_atual_campanha_log.yml'))
+    if estado_data:
+        char_id = 'gabriel_oliveira' # ID fixo para o jogador
+        status = estado_data['status_gabriel']
         
+        # Insere o estado dinâmico na tabela 'personagem_estado'
         cursor.execute('''
-            INSERT INTO personagem_estado (id, personagem_id, nome, localizacao_atual_id, data_estelar, horario_atual, creditos_conta_principal, creditos_pulseira_iip, estado_fome, estado_sede, estado_cansaco, estado_humor)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (1, char_id, 'Gabriel Oliveira', estado['localizacao_atual_id'], estado['data_estelar'], estado['horario_atual'], estado['creditos_conta_principal'], estado['creditos_pulseira_iip'], estado['estado_fome'], estado['estado_sede'], estado['estado_cansaco'], estado['estado_humor']))
+            INSERT INTO personagem_estado (personagem_id, localizacao_atual_id, data_estelar, horario_atual, creditos_conta_principal, creditos_pulseira_iip, fome, sede, cansaco, humor)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            char_id,
+            status['local'], # Idealmente, este seria um ID como 'laboratorio_4b'
+            status['data_estelar'],
+            status['horario_atual'],
+            status['creditos']['conta_principal'],
+            status['creditos']['pulseira_iip'],
+            status['estado_fisico_emocional']['fome'],
+            status['estado_fisico_emocional']['sede'],
+            status['estado_fisico_emocional']['cansaco'],
+            status['estado_fisico_emocional']['humor']
+        ))
         print(f"INFO: Estado inicial do jogador '{char_id}' inserido.")
 
         # Inventário Inicial
-        inventario_para_inserir = [(char_id, item) for item in estado_inicial_data['inventario']]
-        cursor.executemany('INSERT INTO inventario (personagem_id, item_id, quantidade) VALUES (?, ?, 1)', inventario_para_inserir)
+        inventario_para_inserir = [(char_id, item) for item in status['posses']]
+        cursor.executemany('INSERT INTO inventario (personagem_id, nome_item) VALUES (?, ?)', inventario_para_inserir)
         print(f"INFO: {len(inventario_para_inserir)} itens inseridos no inventário inicial.")
 
-        # Habilidades Iniciais
-        habilidades_para_inserir = [
-            (char_id, h['nome'], h['tipo'], h['nivel'], h['subnivel'], h.get('observacoes', ''))
-            for h in estado_inicial_data['habilidades']
-        ]
-        cursor.executemany('INSERT INTO habilidades (personagem_id, nome_habilidade, tipo, nivel, subnivel, observacoes) VALUES (?, ?, ?, ?, ?, ?)', habilidades_para_inserir)
-        print(f"INFO: {len(habilidades_para_inserir)} habilidades inseridas.")
-
         # Conhecimentos Iniciais
-        conhecimentos_para_inserir = [
-            (char_id, c['topico'], c['categoria'], c['nivel_proficiencia'])
-            for c in estado_inicial_data['conhecimentos']
-        ]
-        cursor.executemany('INSERT INTO conhecimentos (personagem_id, topico, categoria, nivel_proficiencia) VALUES (?, ?, ?, ?)', conhecimentos_para_inserir)
+        conhecimentos_para_inserir = []
+        for cat, topicos in estado_data['conhecimentos_e_aptidoes_adquiridas'].items():
+            if isinstance(topicos, list):
+                 for topico_data in topicos:
+                    if isinstance(topico_data, dict):
+                        conhecimentos_para_inserir.append(
+                            (char_id, topico_data['topico'], cat, topico_data['nivel'])
+                        )
+
+        cursor.executemany(
+            'INSERT INTO conhecimentos (personagem_id, topico, categoria, nivel_proficiencia) VALUES (?, ?, ?, ?)',
+            conhecimentos_para_inserir
+        )
         print(f"INFO: {len(conhecimentos_para_inserir)} conhecimentos inseridos.")
-
-    # --- Processar Log de Eventos Históricos ---
-    log_data = load_yaml_file(os.path.join(LORE_SOURCE_DIR, 'log_eventos.yml'))
-    if log_data:
-        eventos_para_inserir = [
-            (e['evento']['id'], e['evento']['data_estelar'], e['evento']['local_id'], e['evento']['acao'], json.dumps(e['evento']))
-            for e in log_data if 'evento' in e
-        ]
-        cursor.executemany('INSERT INTO log_eventos (id, data_estelar, local_id, acao, detalhes_json) VALUES (?, ?, ?, ?, ?)', eventos_para_inserir)
-        print(f"INFO: {len(eventos_para_inserir)} eventos históricos inseridos no log.")
-
 
     conn.commit()
     conn.close()
     print("\n--- Construção do Mundo Concluída ---")
 
+
 if __name__ == '__main__':
+    # Roda as duas funções em sequência
     setup_database()
     build_world()

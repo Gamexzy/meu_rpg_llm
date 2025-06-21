@@ -1,0 +1,177 @@
+# ===================================================================
+# Arquivo Bruto da Campanha
+# Repositório completo de todos os eventos da campanha.
+# Utiliza o Formato de Log Estruturado (FLE).
+# ===================================================================
+
+logs_campanha:
+  - data_estelar: "10 de Junho de 2325"
+    local: "Estação Vigilância Solaris, Setor de Triagem"
+    personagens: ["Gabriel", "Supervisor Tarek"]
+    acao: "Entrevista de trabalho e confirmação de cargo."
+    detalhes: "Gabriel realizou um teste comportamental automatizado com respostas prudentes. Foi aprovado e aceite como Assistente Técnico Nível 1 na Equipa Beta. Tarek indicou potencial de crescimento."
+    emocao: "Senso de responsabilidade e motivação."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Varanda de Observação Lateral"
+    personagens: ["Gabriel", "Nara Elven"]
+    acao: "Visita à varanda e encontro com Nara Elven."
+    detalhes: "Gabriel sentiu uma conexão com o cosmos. Nara Elven, supervisora, aconselhou a observar, anotar e ouvir."
+    insight: "Sensibilidade para Padrões Sistémicos."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Alojamento Unidade 14-B"
+    personagens: ["Gabriel", "Tarek (via mensagem)"]
+    acao: "Exploração do alojamento e leitura de mensagem de Tarek."
+    detalhes: "Gabriel explora o seu alojamento. Encontra uma mensagem de boas-vindas de Tarek, reforçando a importância do auto-aprendizado."
+    emocao: "Senso de responsabilidade e motivação instigados."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Setor Comercial Delta"
+    personagens: ["Gabriel", "Vendedor de Assistentes Pessoais"]
+    acao: "Pesquisa e compra do assistente pessoal FocusLink Mini."
+    detalhes: "Gabriel comprou o FocusLink Mini por 150 créditos, utilizando o saldo da sua pulseira (IIP). O dispositivo foi ativado e vinculado ao seu ID."
+    item: "FocusLink Mini"
+    insight: "Potencial de Otimização Pessoal; Otimização de Rotina Pessoal com FocusLink Mini; Funcionamento Detalhado do FocusLink Mini."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Alojamento Unidade 14-B"
+    personagens: ["Gabriel"]
+    acao: "Estudo aprofundado do FocusLink Mini."
+    detalhes: "Gabriel dedicou tempo a explorar as funcionalidades e especificações técnicas do dispositivo, adquirindo um conhecimento detalhado dos seus componentes e protocolos."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Alojamento Unidade 14-B (via terminal)"
+    personagens: ["Gabriel"]
+    acao: "Estudo de processadores neurais e IA adaptativa."
+    detalhes: "Gabriel aprofundou o seu estudo sobre a arquitetura de processadores neurais e IA, conectando a teoria com a aplicação prática."
+    insight: "Compreensão Avançada de Processadores Neurais e IA Adaptativa."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Alojamento Unidade 14-B (via FocusLink Mini)"
+    personagens: ["Gabriel"]
+    acao: "Configuração de rotina no FocusLink Mini."
+    detalhes: "Configurou lembretes para refeições e monitorização de hidratação."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Alojamento Unidade 14-B (via terminal)"
+    personagens: ["Gabriel"]
+    acao: "Gestão de créditos."
+    detalhes: "Transferiu 293 créditos da sua pulseira (IIP) para a conta principal, deixando 50 na pulseira."
+    insight: "Gestão Financeira Básica (IIP)."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Refeitório Central (Setor Delta 1)"
+    personagens: ["Gabriel"]
+    acao: "Jantar."
+    detalhes: "Selecionou uma refeição completa, gastando 7 créditos. Jantou com vista para Ytaris-4."
+    emocao: "Fome satisfeita, sede baixa."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Refeitório Central (via Datapad)"
+    personagens: ["Gabriel"]
+    acao: "Pesquisa sobre Ytaris-4."
+    detalhes: "Pesquisou informações detalhadas sobre a composição atmosférica, estrutura e clima do planeta."
+    insight: "Conhecimento Detalhado de Ytaris-4."
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Biblioteca e Arquivos Digitais"
+    personagens: ["Gabriel"]
+    acao: "Estudo da cronologia da evolução humana e das Grandes Civilizações Galácticas."
+    detalhes: "Aprofundou o seu conhecimento sobre a história humana, o contacto com outras raças e os perfis das principais civilizações."
+    insight: ["Compreensão Aprofundada da Cronologia da Evolução Humana", "Panorama e Detalhamento das Grandes Civilizações Galácticas"]
+
+  - data_estelar: "10 de Junho de 2325"
+    local: "Biblioteca e Arquivos Digitais"
+    personagens: ["Gabriel"]
+    acao: "Estudo aprofundado do Setor de Ytaris e Design de Naves."
+    detalhes: "Utilizou a funcionalidade de referência cruzada para estudar o sistema Ytaris e aprofundou-se nos princípios de engenharia de naves e estações."
+    insight: ["Localização Abrangente da Vigilância Solaris", "Detalhes Aprofundados do Setor de Ytaris", "Compreensão Aprofundada de Design de Naves e Estações Orbitais"]
+
+  - data_estelar: "10 de Junho de 2325, 23h00"
+    local: "Alojamento Unidade 14-B (Cama)"
+    personagens: ["Gabriel"]
+    acao: "Configurou alarme e foi dormir."
+    detalhes: "Configurou o alarme para as 05h30 e deitou-se para descansar, antecipando o primeiro dia oficial na Equipa Beta."
+    emocao: "Calmo, satisfeito, antecipação."
+
+  - data_estelar: "11 de Junho de 2325, 06h00"
+    local: "Alojamento Unidade 14-B"
+    personagens: ["Gabriel"]
+    acao: "Despertar e consultar cronograma diário."
+    detalhes: "O alarme tocou. Gabriel consultou o seu cronograma no FocusLink Mini, preparando-se mentalmente para o dia."
+    emocao: "Concentrado, antecipação."
+
+  - data_estelar: "11 de Junho de 2325, ~06h40"
+    local: "Refeitório Central (Setor Delta 1)"
+    personagens: ["Gabriel"]
+    acao: "Tomar o pequeno-almoço e refletir."
+    detalhes: "Tomou o pequeno-almoço com vista para Ytaris-4, refletindo sobre as tarefas do dia e os encontros com Tarek e Nara."
+    emocao: "Tranquilidade, organização de pensamentos."
+
+  - data_estelar: "11 de Junho de 2325, 07h30"
+    local: "Entrada do Laboratório Atmosférico 4B, Bloco Beta."
+    personagens: ["Gabriel"]
+    acao: "Entrada no laboratório."
+    detalhes: "Entrou no laboratório, observando o ambiente e os técnicos. Nara Elven acenou discretamente."
+    emocao: "Foco, determinação."
+
+  - data_estelar: "11 de Junho de 2325, ~08h05"
+    local: "Laboratório Atmosférico 4B, Bloco Beta."
+    personagens: ["Gabriel", "Tarek", "Nara Elven"]
+    acao: "Tarek atribui a primeira tarefa e delega a Nara."
+    detalhes: "Tarek deu as boas-vindas oficiais a Gabriel e delegou a Nara a sua orientação nos protocolos de monitorização."
+    emocao: "Profissionalismo, prontidão."
+
+  - data_estelar: "11 de Junho de 2325, ~08h10"
+    local: "Estação de Treinamento, Laboratório Atmosférico 4B"
+    personagens: ["Gabriel", "Nara Elven"]
+    acao: "Gabriel pergunta sobre o objetivo da pesquisa em Ytaris-4."
+    detalhes: "Nara explicou que o objetivo principal é desenvolver tecnologias de captação de energia atmosférica em larga escala para a Federação."
+    emocao: "Curiosidade aprofundada, admiração."
+
+  - data_estelar: "11 de Junho de 2325, ~08h20"
+    local: "Estação de Treinamento, Laboratório Atmosférico 4B"
+    personagens: ["Gabriel", "Nara Elven"]
+    acao: "Início do treinamento de análise de dados anómalos."
+    detalhes: "Gabriel identificou rapidamente picos de metano e outras anomalias numa simulação, recebendo validação de Nara."
+    emocao: "Foco, satisfação intelectual."
+    insight: "Protocolos de Monitorização Atmosférica (Nível 2: Funcional)."
+
+  - data_estelar: "11 de Junho de 2325, ~08h45"
+    local: "Estação de Treinamento, Laboratório Atmosférico 4B"
+    personagens: ["Gabriel", "Nara Elven"]
+    acao: "Isolamento e reporte de anomalia proeminente."
+    detalhes: "Gabriel identificou e reportou com precisão um turbilhão de metano com quase 800 km de diâmetro."
+    emocao: "Foco intenso, satisfação."
+    insight: "Leitura de Dados (Habilidades Técnicas) - Subiu para 1D."
+
+  - data_estelar: "11 de Junho de 2325, ~09h05"
+    local: "Estação de Treinamento, Laboratório Atmosférico 4B"
+    personagens: ["Gabriel", "Nara Elven"]
+    acao: "Início da simulação de posicionamento de coletores."
+    detalhes: "Gabriel observou Nara demonstrar a estratégia de posicionamento de naves coletoras para mitigar a tempestade."
+    emocao: "Concentração, aprendizagem."
+    insight: "Operação de Equipamentos (Habilidades Técnicas) - Subiu para 1D; Lógica e Raciocínio (Habilidades Cognitivas) - Subiu para 1B."
+
+  - data_estelar: "11 de Junho de 2325, ~09h50"
+    local: "Estação de Treinamento, Laboratório Atmosférico 4B"
+    personagens: ["Gabriel", "Nara Elven"]
+    acao: "Execução da própria simulação de coleta de energia."
+    detalhes: "Gabriel aplicou a sua estratégia de triangulação, posicionando as três naves com sucesso e gerindo o risco."
+    emocao: "Confiança, determinação, eficiência."
+
+  - data_estelar: "11 de Junho de 2325, ~10h20"
+    local: "Estação de Treinamento, Laboratório Atmosférico 4B"
+    personagens: ["Gabriel", "Nara Elven"]
+    acao: "Nara elogia a performance e propõe um novo desafio."
+    detalhes: "Impressionada com a intuição e precisão de Gabriel, Nara propôs um cenário mais desafiador de anomalia em tempo real."
+    emocao: "Satisfação, prontidão."
+    insight: "Gestão de Crise (Habilidades Cognitivas) - Subiu para 1D."
+
+  - data_estelar: "11 de Junho de 2325, ~10h30"
+    local: "Estação de Treinamento, Laboratório Atmosférico 4B"
+    personagens: ["Gabriel", "Nara Elven"]
+    acao: "Aceita o novo desafio."
+    detalhes: "Gabriel aceitou o desafio. A simulação mudou, mostrando uma nova anomalia, maior e mais errática, exigindo uma resposta imediata."
+    emocao: "Adrenalina, confiança, foco, pressão."
