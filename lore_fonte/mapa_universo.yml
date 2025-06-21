@@ -1,0 +1,304 @@
+# ===================================================================
+# Documento de Mapa do Universo RPG
+# Foco: Estrutura da Galáxia e Localização
+# Versão: 1.11
+# ===================================================================
+
+locais:
+  - id: "braco_orion"
+    nome: "Braço de Órion"
+    tipo: "braco_espiral"
+    parent_id: null # É o topo da hierarquia galáctica (contexto da galáxia)
+    descricao: >
+      Uma área densamente populada e ativa, onde a humanidade (FUS) e outras
+      espécies da Aliança de Estações Orbitais concentram suas atividades.
+    caracteristicas: "Densamente populado e ativo, concentração de FUS e Aliança."
+
+  - id: "margem_espiral_orion"
+    nome: "A Margem da Espiral de Órion"
+    tipo: "regiao_galactica"
+    parent_id: "braco_orion"
+    descricao: >
+      Menos densa que o centro do Braço, mas vibrante, com alta atividade de
+      colonização e comércio. Possui rotas de tráfego bem estabelecidas.
+    caracteristicas: "Vibrante, alta colonização e comércio, rotas de tráfego estabelecidas."
+
+  - id: "setor_nebulosa_egide"
+    nome: "Setor da Nebulosa Égide"
+    tipo: "setor_estelar"
+    parent_id: "margem_espiral_orion"
+    descricao: >
+      Caracterizado por densas e coloridas nebulosas de gás e poeira.
+      Dificulta a navegação mas abriga fenômenos científicos únicos.
+    caracteristicas: "Nebulosas densas e coloridas, navegação dificultada, fenômenos científicos únicos."
+
+  - id: "sistema_ytaris"
+    nome: "Sistema de Ytaris"
+    tipo: "sistema_estelar"
+    parent_id: "setor_nebulosa_egide"
+    localizacao: "Na borda interna da Nebulosa Égide."
+    caracteristicas_gerais: >
+      Um sistema relativamente calmo, dominado pela estrela Ytaris Primária
+      (Classe K, anã laranja-avermelhada), cuja estabilidade é ideal para
+      operações de pesquisa.
+    corpos_celestes:
+      - id: "planeta_ytaris4"
+        nome: "Ytaris-4"
+        tipo: "Gigante gasoso"
+        parent_id: "sistema_ytaris"
+        caracteristicas: "Dominado por oceanos atmosféricos de cor turquesa e dourada. Inabitável na superfície."
+        relevancia: "Ponto gravitacional central para a Vigilância Solaris."
+      - id: "planetas_rochosos_internos"
+        nomes: ["Ytaris-1", "Ytaris-2", "Ytaris-3"]
+        tipo: "Planetas Rochosos Internos"
+        parent_id: "sistema_ytaris"
+        caracteristicas: "Inóspitos, varridos por ventos estelares. Ytaris-2 possui vastos depósitos de minerais pesados."
+      - id: "cinturao_kronos"
+        nome: "Cinturão de Asteroides de Kronos"
+        parent_id: "sistema_ytaris"
+        localizacao: "Entre Ytaris-3 e Ytaris-4."
+        caracteristicas: "Fonte rica de metais e elementos raros, mas perigoso e complexo para mineração."
+      - id: "gigantes_gelo_externos"
+        nomes: ["Ytaris-5", "Ytaris-6"]
+        tipo: "Gigantes de Gelo Externos"
+        parent_id: "sistema_ytaris"
+        caracteristicas: "Possuem atmosferas congeladas, núcleos metálicos e oceanos subsuperficiais sob estudo."
+    estacoes_instalacoes:
+      - id: "estacao_vigilancia_solaris"
+        nome: "Vigilância Solaris"
+        tipo: "Estação científica de médio porte"
+        parent_id: "sistema_ytaris"
+        posicao: "Órbita baixa e estável em torno de Ytaris-4."
+        funcao: "Centro de pesquisa atmosférica, monitoramento orbital e operações técnicas. Hub para diversas espécies."
+        destaques: "Vistas panorâmicas de Ytaris-4 são uma característica marcante."
+        estrutura_geral:
+          niveis_principais: 3
+          conexoes: "Elevadores e escadas interligam todos os níveis."
+        areas_restritas: # Áreas restritas da estação
+          - "Setor de Pesquisa Avançada"
+          - "Sala de Servidores Centrais"
+      - id: "instalacoes_menores_ytaris"
+        nome: "Outras Instalações no Sistema"
+        parent_id: "sistema_ytaris"
+        tipos:
+          - nome: "Postos de Mineração Automatizados"
+            parent_id: "instalacoes_menores_ytaris"
+            localizacao: "Cinturão de Kronos e proximidades de Ytaris-2."
+            descricao: "Pequenas instalações, em sua maioria automatizadas, para extração de minerais."
+          - nome: "Plataformas de Observação Remota"
+            parent_id: "instalacoes_menores_ytaris"
+            localizacao: "Dispersas pelo sistema."
+            descricao: "Estruturas mínimas para coleta de dados específicos. Não são habitáveis a longo prazo."
+          - nome: "Naves de Suporte (Rotativas)"
+            parent_id: "instalacoes_menores_ytaris"
+            descricao: >
+              Naves de carga e reabastecimento (Confraria de Th'al, corporações) que
+              utilizam a Vigilância Solaris como hub temporário.
+
+  - id: "colonia_nova_aurora"
+    nome: "Nova Aurora"
+    tipo: "colônia espacial"
+    parent_id: "braco_orion"
+    posicao: "Localização exata não especificada. Ponto de origem de Gabriel."
+    caracteristicas: "Colônia populosa e focada no comércio, conhecida por ser um ambiente seguro e estável."
+
+  - id: "passagem_solara"
+    nome: "Passagem de Solara"
+    tipo: "corredor_navegacao"
+    parent_id: "margem_espiral_orion"
+    descricao: "Um corredor de navegação natural através de um campo de asteroides, utilizado por naves de carga e patrulhas da FUS."
+
+  - id: "posto_avancado_echo7"
+    nome: "Posto Avançado Echo-7"
+    tipo: "estacao_reabastecimento"
+    parent_id: "margem_espiral_orion"
+    descricao: "Pequena estação de reabastecimento e monitoramento da FUS, a alguns dias de viagem da Vigilância Solaris."
+
+  # Setores e Pontos de Interesse dentro da Vigilância Solaris
+  - id: "setor_corredor_leste"
+    nome: "Corredor Leste"
+    tipo: "corredor_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    localizacao: "Próximo à Ala Leste - Setor de Triagem."
+    acessos:
+      - "Refeitório Central"
+      - "Salas de descanso"
+      - "Varanda de observação lateral"
+
+  - id: "setor_corredor_tecnico_norte"
+    nome: "Corredor Técnico Norte"
+    tipo: "corredor_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    acessos:
+      - "Bloco Beta (área de trabalho de Gabriel)"
+      - "Sala de manutenção"
+      - "Terminal de status ambiental"
+
+  - id: "setor_biblioteca_arquivos"
+    nome: "Biblioteca e Arquivos Digitais"
+    tipo: "ponto_interesse_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    localizacao: "Próxima ao centro da estação."
+    descricao: "Um centro de conhecimento silencioso com acesso a registros históricos, dados planetários e arquivos da estação."
+    principais_secoes_temas:
+      - nome: "Arquivos de Pesquisa Científica"
+        temas:
+          - "Dados atmosféricos de Ytaris-4"
+          - "Pesquisas espaciais e expedições"
+          - "Análises de minerais"
+          - "Biologia intergaláctica (espécies e ecossistemas)"
+          - "Estudos sobre energia e propulsão avançada"
+      - nome: "Manuais Operacionais e Regulamentos da Estação"
+        temas:
+          - "Protocolos de segurança"
+          - "Manuais de equipamentos da Vigilância Solaris (drones, suporte à vida, maquinaria industrial)"
+          - "Regulamentos de conduta"
+          - "Registros administrativos"
+          - "Potenciais plantas detalhadas da estação"
+      - nome: "História e Cultura Galáctica"
+        temas:
+          - "Registros históricos da expansão humana"
+          - "Cronologias de contatos com outras raças"
+          - "Informações sobre culturas e sociedades alienígenas"
+          - "Tratados intergalácticos"
+          - "Arquivos de arte e filosofia de diversas civilizações"
+        subsecoes_principais:
+          - nome: "Guerras e Conflitos Galácticos"
+            descricao: "Registros dos principais embates que moldaram o panorama político e social da galáxia."
+          - nome: "Grandes Civilizações (Humanas e Alienígenas)"
+            descricao: "Perfis aprofundados sobre as sociedades mais influentes e suas contribuições."
+          - nome: "Marcos Tecnológicos na História Galáctica"
+            descricao: "Uma linha do tempo interativa de inovações cruciais, da propulsão de dobra às IAs complexas e à arquitetura das estações orbitais avançadas."
+          - nome: "Movimentos Filosóficos e Sociais"
+            descricao: "Exploração das grandes correntes de pensamento, ideologias e transformações sociais que varreram a galáxia."
+          - nome: "Primeiros Contatos e Diplomacia"
+            descricao: "Relatos dos encontros iniciais da humanidade com outras formas de vida inteligente."
+          - nome: "A Era das Estações Orbitais"
+            descricao: "Foco no surgimento, evolução e papel das estações espaciais na vida galáctica."
+      - nome: "Tecnologia e Engenharia Aplicada"
+        # A descrição geral da seção Tecnologia e Engenharia Aplicada
+        descricao: "Bancos de dados sobre designs de naves, arquitetura de estações orbitais, sistemas de inteligência artificial (incluindo processadores neurais e IA adaptativa), robótica avançada, e o design de próteses tecnológicas e aprimoramentos cibernéticos."
+        temas:
+          - nome: "Design de Naves e Estações Orbitais"
+            descricao: >
+              Contém especificações técnicas, modelos arquitetônicos, princípios de engenharia estrutural
+              para ambientes espaciais, e projetos de propulsão. Seria aqui que ele encontraria detalhes
+              sobre a própria estrutura da Vigilância Solaris.
+          - nome: "Sistemas de IA e Cibernética"
+            descricao: >
+              Repositórios aprofundados sobre inteligência artificial, redes neurais, interfaces
+              cérebro-máquina, robótica avançada, e o design de próteses tecnológicas e aprimoramentos
+              cibernéticos.
+          - nome: "Energia e Recursos"
+            descricao: >
+              Informações sobre as tecnologias de geração de energia (incluindo fusão, antimatéria e
+              energia de plasma), sistemas de extração de recursos (mineração, terraformação), e
+              gerenciamento de sustentabilidade em ambientes fechados.
+          - nome: "Comunicações Avançadas e Sensores"
+            descricao: >
+              Detalhes sobre tecnologias de comunicação de longo alcance (quântica, taquiônica), princípios
+              de sensoriamento remoto, sistemas de varredura planetária, e design de redes de dados.
+          - nome: "Materiais e Manufatura Avançada"
+            descricao: >
+              Informações sobre novos materiais compostos, nanotecnologia, impressão 3D em larga escala,
+              e processos de fabricação espacial.
+      - nome: "Educação e Treinamento"
+        temas:
+          - "Módulos interativos de aprendizado"
+          - "Simulações para aprimoramento de habilidades técnicas e cognitivas"
+          - "Cursos de idiomas galácticos"
+          - "Guias para novas tecnologias"
+      - nome: "Comunicações e Mídia"
+        temas:
+          - "Arquivos de notícias galácticas"
+          - "Transmissões de entretenimento (música, dramalhões, RV)"
+          - "Registros de comunicações históricas"
+      - nome: "Navegação e Rotas Espaciais"
+        temas:
+          - "Mapas estelares"
+          - "Registros de rotas comerciais"
+          - "Dados de campo gravitacional"
+          - "Informações sobre anomalias espaciais"
+
+  - id: "setor_doca_carga_b"
+    nome: "Doca de Carga (Bloco B)"
+    tipo: "area_operacional_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    descricao: "Área operacional movimentada com fluxo constante de materiais. Acesso não restrito, mas de trabalho intenso."
+
+  - id: "setor_refeitorio_delta1"
+    nome: "Refeitório Central (Setor Delta 1)"
+    tipo: "ponto_interesse_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    descricao: "Local de refeições com buffet rotativo e amplas janelas panorâmicas."
+
+  - id: "setor_comercial_delta"
+    nome: "Setor Comercial Delta"
+    tipo: "ponto_interesse_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    descricao: "Local para encontrar fornecedores autorizados de tecnologia, como assistentes pessoais."
+
+  - id: "setor_mercado_pavilhao3"
+    nome: "Mercado de Tecnologia do Pavilhão 3"
+    tipo: "ponto_interesse_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    descricao: "Outro local para encontrar fornecedores de tecnologia."
+
+  - id: "setor_alojamento_14b"
+    nome: "Alojamento Unidade 14-B"
+    tipo: "alojamento_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    localizacao: "Setor de Dormitórios - Nível Inferior."
+    descricao: "O quarto de Gabriel, equipado com terminal pessoal."
+
+  - id: "setor_lab_atmosferico_4b"
+    nome: "Laboratório Atmosférico 4B, Bloco Beta"
+    tipo: "laboratorio_estacao"
+    parent_id: "estacao_vigilancia_solaris"
+    descricao: "Espaço amplo e funcional para pesquisa de Ytaris-4. Contém cilindros de contenção, painéis de controle e projeções holográficas."
+    componentes:
+      - "Estação de Treinamento com interface para simulações."
+
+estacoes_espaciais: # Nova seção adicionada
+  id: "diretorio_estacoes"
+  titulo: "Diretório de Estações Espaciais"
+  descricao: >
+    Um catálogo das principais estações espaciais conhecidas, detalhando
+    sua função primária, localização e uma visão geral das tecnologias
+    presentes.
+  lista_estacoes:
+    - id: "estacao_vigilancia_solaris"
+      nome: "Vigilância Solaris"
+      localizacao: "Órbita baixa e estável em torno de Ytaris-4, Setor da Nebulosa Égide."
+      funcao_primaria: "Centro de pesquisa atmosférica, monitoramento orbital e operações técnicas."
+      tecnologias_presentes:
+        - "Gravidade Artificial"
+        - "Controle Ambiental Dinâmico"
+        - "Escudos de Micrometeoritos"
+        - "Terminais Inteligentes"
+        - "Pulseiras de Identificação Integrada (IIP)"
+        - "Sistemas de Comunicação (externa quântica e interna)"
+        - "Laboratórios Especializados"
+        - "Drones de Manutenção"
+        - "IA Setorial Auxiliar"
+        - "Assistentes Pessoais"
+        - "Refeitórios Automatizados"
+        - "Alojamentos Inteligentes"
+    - id: "posto_avancado_echo7"
+      nome: "Posto Avançado Echo-7"
+      localizacao: "Margem da Espiral de Órion."
+      funcao_primaria: "Pequena estação de reabastecimento e monitoramento da FUS."
+      tecnologias_presentes: "Sem informações detalhadas."
+    # Adicionar outras estações aqui, conforme descobertas.
+
+
+meta:
+  atualizacao_documento:
+    titulo: "Tutorial de Atualização deste Documento"
+    quando: >
+      Este documento deve ser atualizado sempre que novas localizações,
+      sistemas estelares, planetas ou pontos de referência galácticos
+      forem introduzidos ou detalhados na narrativa, incluindo o layout
+      interno de estações ou outras estruturas.
+    onde: "Nas seções pertinentes ou criando novas seções para novas localizações."
+    como: "Adição da seção 'estacoes_espaciais' para catalogar as estações com suas tecnologias."

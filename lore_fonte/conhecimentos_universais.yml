@@ -1,74 +1,156 @@
 # Documento de Conhecimentos Universais do RPG
-# Versão: 1.57
+# Versão: 1.65
 # Formato: YAML
 # Este arquivo serve como um repositório para informações amplamente conhecidas
 # ou princípios fundamentais do universo do RPG.
 
 info_geral:
   documento: "Conhecimentos Universais do RPG"
-  versao: "1.57"
+  versao: "1.65"
   descricao: >
     Um repositório para informações amplamente conhecidas ou princípios
     fundamentais do universo do RPG, que não são específicos de uma campanha
     ou personagem, mas fazem parte do conhecimento generalizado acessível à
     maioria dos indivíduos informados.
 
-principios_tecnologicos:
-  processadores_neurais:
-    id: tec_proc_neural
-    nome: "Estrutura de Processadores Neurais e Núcleos de IA Adaptativa"
-    descricao: >
-      Fundamentais para a IA embarcada, simulam o cérebro biológico para
-      processamento paralelo de informações.
-    estrutura_basica:
-      - nome: "Nós (Neurônios Digitais)"
-        descricao: "Unidades de processamento que recebem, calculam e transmitem sinais."
-      - nome: "Conexões (Sinapses Digitais)"
-        descricao: "Vínculos entre nós com 'pesos' que determinam a força do sinal."
-      - nome: "Camadas"
-        descricao: "Organização hierárquica dos nós."
-        tipos_camadas:
-          - nome: "Camada de Entrada"
-            funcao: "Recebe os dados brutos a serem processados."
-          - nome: "Camadas Ocultas"
-            funcao: "Realizam o processamento complexo, extraindo padrões."
-          - nome: "Camada de Saída"
-            funcao: "Produz o resultado final ou a decisão."
-    ia_adaptativa:
-      nome: "Núcleos de IA Adaptativa"
-      descricao: >
-        Componentes que permitem aos processadores 'aprender' e otimizar seu
-        desempenho com base em novos dados, utilizando algoritmos de
-        aprendizado de máquina (ex: backpropagation, aprendizado por reforço).
+# Nova seção para consolidar todas as tecnologias
+tecnologias:
+  id: tecnologias_gerais
+  titulo: "Tecnologias do Universo"
+  descricao: >
+    Compilação das principais tecnologias que moldam a sociedade e a exploração
+    espacial no universo do RPG, abrangendo desde os princípios fundamentais
+    até as aplicações práticas em estações e na vida cotidiana.
 
-  proteses_ciberneticas:
-    id: tec_protese
-    nome: "Próteses Tecnológicas e Aprimoramentos Cibernéticos"
+  principios_tecnologicos:
+    id: tec_principios
+    titulo: "Princípios e Fundamentos Tecnológicos"
+    processadores_neurais:
+      id: tec_proc_neural
+      nome: "Estrutura de Processadores Neurais e Núcleos de IA Adaptativa"
+      descricao: >
+        Fundamentais para a IA embarcada, simulam o cérebro biológico para
+        processamento paralelo de informações.
+      estrutura_basica:
+        - nome: "Nós (Neurônios Digitais)"
+          descricao: "Unidades de processamento que recebem, calculam e transmitem sinais."
+        - nome: "Conexões (Sinapses Digitais)"
+          descricao: "Vínculos entre nós com 'pesos' que determinam a força do sinal."
+        - nome: "Camadas"
+          descricao: "Organização hierárquica dos nós."
+          tipos_camadas:
+            - nome: "Camada de Entrada"
+              funcao: "Recebe os dados brutos a serem processados."
+            - nome: "Camadas Ocultas"
+              funcao: "Realizam o processamento complexo, extraindo padrões."
+            - nome: "Camada de Saída"
+              funcao: "Produz o resultado final ou a decisão."
+      ia_adaptativa:
+        nome: "Núcleos de IA Adaptativa"
+        descricao: >
+          Componentes que permitem aos processadores 'aprender' e otimizar seu
+          desempenho com base em novos dados, utilizando algoritmos de
+          aprendizado de máquina (ex: backpropagation, aprendizado por reforço).
+
+    proteses_ciberneticas:
+      id: tec_protese
+      nome: "Próteses Tecnológicas e Aprimoramentos Cibernéticos"
+      descricao: >
+        Avanço comum que vai além da simples substituição de membros, integrando-se
+        perfeitamente ao sistema nervoso do usuário.
+      caracteristicas:
+        - nome: "Funcionalidade Aprimorada"
+          descricao: "Restauração precisa da mobilidade, igualando ou superando o biológico."
+        - nome: "Capacidades Superiores"
+          descricao: "Melhorias como força aumentada, agilidade aprimorada ou interfaces sensoriais avançadas."
+        - nome: "Expressão Estética"
+          descricao: "Vasta gama de opções de personalização, servindo como expressão pessoal."
+        - nome: "Integração e Manutenção"
+          descricao: "Requerem cirurgia para implantação e manutenção periódica."
+
+  engenharia_espacial:
+    id: eng_espacial
+    titulo: "Design de Naves e Estações Orbitais"
+    propulsao_interestelar:
+      - id: tec_motor_dobra
+        tipo: "Motores de Dobra"
+        uso: "Viagens mais rápidas que a luz, dobrando o espaço-tempo."
+      - id: tec_propulsor_ions
+        tipo: "Propulsores de Íons"
+        uso: "Manobras precisas e ajustes de órbita, alta eficiência."
+      - id: tec_motor_singularidade
+        tipo: "Motores de Singularidade"
+        uso: "Raros e poderosos, para saltos de longa distância em naves de grande porte."
+    design_estacoes:
+      - id: tec_estacoes_modulares # ID adicionado
+        nome: "Estações Orbitais Modulares" # Alterado de 'conceito' para 'nome'
+        descricao: "Módulos podem ser conectados/desconectados, facilitando expansões e reparos."
+      - id: tec_sistemas_suporte_vida # ID adicionado
+        nome: "Sistemas de Suporte à Vida" # Alterado de 'conceito' para 'nome'
+        descricao: "Reciclagem contínua de ar e água para manter ambientes habitáveis."
+      - id: tec_gerenciamento_ambiental # ID adicionado
+        nome: "Gerenciamento Ambiental" # Alterado de 'conceito' para 'nome'
+        descricao: "Controle de temperatura e pressão em cada compartimento."
+    tecnologias_protecao:
+      - id: tec_escudos_defletores
+        nome: "Escudos Defletores"
+        funcao: "Campos de energia que desviam detritos, radiação e pequenos impactos."
+      - id: tec_compensacao_inercia
+        nome: "Sistemas de Compensação de Inércia"
+        funcao: "Anulam os efeitos da inércia durante acelerações bruscas."
+
+  tecnologias_estacoes:
+    id: tec_essenciais_geral
+    titulo: "Tecnologias de Estações Orbitais"
     descricao: >
-      Avanço comum que vai além da simples substituição de membros, integrando-se
-      perfeitamente ao sistema nervoso do usuário.
-    caracteristicas:
-      - nome: "Funcionalidade Aprimorada"
-        descricao: "Restauração precisa da mobilidade, igualando ou superando o biológico."
-      - nome: "Capacidades Superiores"
-        descricao: "Melhorias como força aumentada, agilidade aprimorada ou interfaces sensoriais avançadas."
-      - nome: "Expressão Estética"
-        descricao: "Vasta gama de opções de personalização, servindo como expressão pessoal."
-      - nome: "Integração e Manutenção"
-        descricao: "Requerem cirurgia para implantação e manutenção periódica."
+      Conjunto de tecnologias fundamentais que garantem a funcionalidade,
+      habitabilidade e segurança das grandes estações espaciais.
+    tecnologia_estrutural_ambiental:
+      - id: tec_gravidade_artificial
+        nome: "Gravidade Artificial"
+        descricao: "Criada por rotação controlada dos anéis habitáveis e estabilizadores de massa."
+      - id: tec_controle_ambiental_dinamico
+        nome: "Controle Ambiental Dinâmico"
+        descricao: "Temperatura, umidade e pressão ajustadas por zonas automaticamente."
+      - id: tec_escudos_micrometeoritos
+        nome: "Escudos de Micrometeoritos"
+        descricao: "Camadas de material adaptativo que reforçam as paredes externas."
+    tecnologia_informacao_interface:
+      - id: tec_terminais_inteligentes
+        nome: "Terminais Inteligentes"
+        descricao: "Distribuídos pela estação, respondem a voz e toque."
+      - id: tec_pulseiras_iip
+        nome: "Pulseiras de Identificação Integrada (IIP)"
+        descricao: "Serve como identidade, carteira, chave de acesso e monitor de saúde."
+      - id: tec_sistemas_comunicacao
+        nome: "Sistemas de Comunicação"
+        descricao: "Comunicação externa quântica (quase sem atraso) e redes internas isoladas."
+    tecnologia_operacional_cientifica:
+      - id: tec_laboratorios_especializados
+        nome: "Laboratórios Especializados"
+        descricao: "Capazes de simular condições ambientais de planetas estudados."
+      - id: tec_drones_manutencao
+        nome: "Drones de Manutenção"
+        descricao: "Pequenos e ágeis, cuidam da limpeza e inspeção externa."
+      - id: tec_ia_setorial_auxiliar
+        nome: "IA Setorial Auxiliar"
+        descricao: "IA menores que coordenam setores específicos (pesquisa, engenharia, etc.)."
+    tecnologia_pessoal_suporte:
+      - id: tec_assistentes_pessoais
+        nome: "Assistentes Pessoais"
+        descricao: "Vão de agentes de voz simples a unidades de IA portáteis com autonomia."
+      - id: tec_refeitorios_automatizados
+        nome: "Refeitórios Automatizados"
+        descricao: "Alguns alimentos são impressos com base em nutrientes e dados biométricos."
+      - id: tec_alojamentos_inteligentes
+        nome: "Alojamentos Inteligentes"
+        descricao: "Ajustam automaticamente luz e temperatura, e podem sugerir repouso."
+
 
 conceitos_universo:
   id: conceito_universo
   titulo: "Conceitos Fundamentais do Universo e Estações Espaciais"
   principios:
-    - nome: "Gravidade Artificial"
-      descricao: "Gerada pela rotação controlada de seções habitáveis, criando força centrífuga."
-    - nome: "Terminais Inteligentes"
-      descricao: "Pontos de acesso à informação e sistemas da estação, respondendo a voz e toque."
-    - nome: "Pulseiras de Identificação Integrada (IIP)"
-      descricao: "Dispositivo obrigatório que funciona como identidade, carteira, chave e monitor de saúde."
-    - nome: "Sistemas de Comunicação"
-      descricao: "Redes avançadas para comunicação local (interna) e de longa distância (externa)."
     - nome: "Aliança de Estações Orbitais"
       descricao: "Organização galáctica que estabelece padrões e protocolos, incluindo calendário (UTC)."
     - nome: "Coexistência de Raças"
@@ -91,9 +173,10 @@ cronologia_humana:
       marcos:
         - "Aumento significativo da população e tecnologia."
         - "Início da pesquisa em propulsão de dobra."
-    - nome: "Era da Colonização Interestelar (Séculos XXIII-XXIV)"
-      periodo_desc: "Humanidade coloniza sistemas estelares próximos."
+    - nome: "Era da Colonização Interestelar (Séculos XXIII-XXXIV)"
+      periodo_desc: "Primeiro contato com outras espécies inteligentes. Formação da Aliança de Estações Orbitais."
       marcos:
+        - "Humanidade coloniza sistemas estelares próximos."
         - "Primeiro contato com outras espécies inteligentes."
         - "Formação da Aliança de Estações Orbitais."
     - nome: "Era das Estações Orbitais Avançadas (Século XXV - Atual)"
@@ -172,71 +255,10 @@ grandes_civilizacoes:
         Influenciam sutilmente e raramente se comunicam diretamente.
       localizacao_influencia: "Não-territorial, influência sutil e pontual."
 
-estrutura_galaxia:
-  id: geo_galaxia
-  titulo: "Estrutura da Galáxia e Localização da Vigilância Solaris"
-  localizacao_estacao:
-    braco_espiral: "Braço de Órion"
-    sub_regiao: "A Margem da Espiral de Órion"
-    setor_estelar: "Setor da Nebulosa Égide"
-  pontos_referencia:
-    - nome: "Passagem de Solara"
-      descricao: "Corredor de navegação natural através de um campo de asteroides."
-    - nome: "Posto Avançado Echo-7"
-      descricao: "Pequena estação de reabastecimento da FUS."
-  sistema_ytaris:
-    id: sistema_ytaris
-    estrela_primaria:
-      nome: "Ytaris Primária"
-      classe: "K (Anã laranja-avermelhada)"
-      caracteristica: "Mais fria e de vida mais longa que um sol amarelo."
-    planetas:
-      - nome: "Ytaris-1, Ytaris-2, Ytaris-3"
-        tipo: "Rochosos Internos"
-        habitabilidade: "Inóspitos. Ytaris-2 é rico em minerais pesados."
-      - nome: "Ytaris-4"
-        tipo: "Gigante Gasoso"
-        habitabilidade: "Inabitável (pressão e temperatura extremas)."
-        composicao: "Hidrogênio, hélio, com traços de metano e amônia."
-        clima: "Ventos supersônicos e tempestades ciclônicas massivas."
-        relevancia: >
-          Ponto gravitacional da Estação Vigilância Solaris. Ideal para o
-          estudo de fenômenos atmosféricos e magnéticos.
-      - nome: "Ytaris-5, Ytaris-6"
-        tipo: "Gigantes de Gelo Externos"
-        caracteristica: "Possuem oceanos subsuperficiais, objeto de estudo."
-    outros:
-      - nome: "Cinturão de Asteroides de Kronos"
-        localizacao: "Entre Ytaris-3 e Ytaris-4"
-        descricao: "Fonte rica de metais e elementos raros, mas perigoso para navegação."
-
-engenharia_espacial:
-  id: eng_espacial
-  titulo: "Design de Naves e Estações Orbitais"
-  propulsao_interestelar:
-    - tipo: "Motores de Dobra"
-      uso: "Viagens mais rápidas que a luz, dobrando o espaço-tempo."
-    - tipo: "Propulsores de Íons"
-      uso: "Manobras precisas e ajustes de órbita, alta eficiência."
-    - tipo: "Motores de Singularidade"
-      uso: "Raros e poderosos, para saltos de longa distância em naves de grande porte."
-  design_estacoes:
-    - conceito: "Estações Orbitais Modulares"
-      descricao: "Módulos podem ser conectados/desconectados, facilitando expansões e reparos."
-    - conceito: "Sistemas de Suporte à Vida"
-      descricao: "Reciclagem contínua de ar e água para manter ambientes habitáveis."
-    - conceito: "Gerenciamento Ambiental"
-      descricao: "Controle de temperatura e pressão em cada compartimento."
-  tecnologias_protecao:
-    - nome: "Escudos Defletores"
-      funcao: "Campos de energia que desviam detritos, radiação e pequenos impactos."
-    - nome: "Sistemas de Compensação de Inércia"
-      funcao: "Anulam os efeitos da inércia durante acelerações bruscas."
-
 meta:
   atualizacao_documento:
     quando: >
       Sempre que um novo conceito, tecnologia ou princípio fundamental do universo
       for introduzido e se tornar conhecimento acessível.
     onde: "Nas seções pertinentes ou criando novas seções."
-    como: "Informar o mestre do jogo para adicionar ou ajustar as informações."
+    como: "Adição de IDs e padronização da chave 'nome' para as tecnologias de design de estações."
