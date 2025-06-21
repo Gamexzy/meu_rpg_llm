@@ -98,7 +98,7 @@ ficha_habilidades:
     - tipo: "Cognitivas"
       requisito: "Eventos marcantes, estudo e reflexão."
     - tipo: "Subníveis"
-      progressao: "F -> D -> C -> B -> A"
+      progressao: "E -> D -> C -> B -> A"
     - tipo: "Exemplo de Nível"
       progressao: "1E -> 1A -> 2E"
     - tipo: "Catalisador"
