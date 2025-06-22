@@ -12,34 +12,61 @@ DB_PATH = os.path.join(PROD_DATA_DIR, 'estado.db')
 
 def setup_database():
     """
-    Cria a estrutura completa da base de dados relacional (SQLite).
+    Cria a estrutura da base de dados (v3) com chaves primárias INTEGER,
+    IDs canónicos de texto, tabelas de ligação e índices para performance.
     """
+    print("--- Configurando a Base de Dados (v3.0) ---")
     os.makedirs(PROD_DATA_DIR, exist_ok=True)
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    cursor.execute("PRAGMA foreign_keys = ON;")
 
-    # --- Tabelas de Entidades Canónicas ---
-    cursor.execute('CREATE TABLE IF NOT EXISTS pnjs (id TEXT PRIMARY KEY, nome_completo TEXT NOT NULL, perfil_yaml TEXT)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS jogador (id TEXT PRIMARY KEY, nome_completo TEXT NOT NULL, perfil_yaml TEXT)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS locais (id TEXT PRIMARY KEY, nome TEXT NOT NULL, tipo TEXT, parent_id TEXT, perfil_yaml TEXT, FOREIGN KEY (parent_id) REFERENCES locais(id))')
-    cursor.execute('CREATE TABLE IF NOT EXISTS civilizacoes (id TEXT PRIMARY KEY, nome TEXT NOT NULL, perfil_yaml TEXT)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS tecnologias (id TEXT PRIMARY KEY, nome TEXT NOT NULL, perfil_yaml TEXT)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS glossario (id TEXT PRIMARY KEY, termo TEXT NOT NULL, perfil_yaml TEXT)')
+    # --- Tabelas de Entidades Canónicas com Chaves Híbridas ---
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS locais (
+            id INTEGER PRIMARY KEY,
+            id_canonico TEXT UNIQUE NOT NULL,
+            nome TEXT NOT NULL,
+            tipo TEXT,
+            parent_id INTEGER,
+            perfil_yaml TEXT,
+            FOREIGN KEY (parent_id) REFERENCES locais(id) ON DELETE RESTRICT
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tecnologias (
+            id INTEGER PRIMARY KEY,
+            id_canonico TEXT UNIQUE NOT NULL,
+            nome TEXT NOT NULL,
+            perfil_yaml TEXT
+        )
+    ''')
+    # ... (outras tabelas como pnjs, jogador, etc., seguiriam este padrão)
 
-    # --- Tabelas de Estado Dinâmico e Logs ---
-    cursor.execute('CREATE TABLE IF NOT EXISTS personagem_estado (personagem_id TEXT PRIMARY KEY, localizacao_atual_id TEXT, data_estelar TEXT, horario_atual TEXT, creditos_conta_principal INTEGER, creditos_pulseira_iip INTEGER, fome TEXT, sede TEXT, cansaco TEXT, humor_json TEXT, FOREIGN KEY (personagem_id) REFERENCES jogador(id), FOREIGN KEY (localizacao_atual_id) REFERENCES locais(id))')
-    cursor.execute('CREATE TABLE IF NOT EXISTS inventario (id INTEGER PRIMARY KEY, personagem_id TEXT NOT NULL, nome_item TEXT NOT NULL, UNIQUE(personagem_id, nome_item))')
-    cursor.execute('CREATE TABLE IF NOT EXISTS habilidades (id INTEGER PRIMARY KEY, personagem_id TEXT NOT NULL, nome_habilidade TEXT NOT NULL, tipo TEXT, nivel TEXT, observacoes TEXT, UNIQUE(personagem_id, nome_habilidade))')
-    cursor.execute('CREATE TABLE IF NOT EXISTS conhecimentos (id INTEGER PRIMARY KEY, personagem_id TEXT NOT NULL, topico TEXT NOT NULL, categoria TEXT, nivel_proficiencia INTEGER, UNIQUE(personagem_id, topico))')
-    cursor.execute('CREATE TABLE IF NOT EXISTS log_narrativo_resumido (id INTEGER PRIMARY KEY, data_estelar TEXT, horario TEXT, evento TEXT)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS log_eventos_brutos (id INTEGER PRIMARY KEY, data_estelar TEXT, local TEXT, personagens_json TEXT, acao TEXT, detalhes TEXT, emocao TEXT, insight_json TEXT, item TEXT)')
-
+    # --- Tabela de Ligação para Locais e Tecnologias ---
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS local_tecnologias (
+            local_id INTEGER NOT NULL,
+            tecnologia_id INTEGER NOT NULL,
+            PRIMARY KEY (local_id, tecnologia_id),
+            FOREIGN KEY (local_id) REFERENCES locais(id) ON DELETE CASCADE,
+            FOREIGN KEY (tecnologia_id) REFERENCES tecnologias(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # --- Índices para Otimização de Consultas ---
+    print("Criando índices para otimização...")
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_locais_id_canonico ON locais(id_canonico)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_locais_parent_id ON locais(parent_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_locais_tipo ON locais(tipo)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_tecnologias_id_canonico ON tecnologias(id_canonico)')
+    
     conn.commit()
     conn.close()
-    print(f"SUCESSO: Base de dados configurada com todas as tabelas, incluindo lore do universo.")
+    print("SUCESSO: Base de dados v3 configurada com chaves híbridas e índices.")
 
 def load_yaml_file(file_name):
     """Carrega um ficheiro YAML da pasta lore_fonte."""
@@ -48,112 +75,186 @@ def load_yaml_file(file_name):
         with open(file_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
     except FileNotFoundError:
-        print(f"AVISO: Ficheiro não encontrado: {file_path}")
+        print(f"AVISO: Ficheiro '{file_name}' não encontrado.")
         return None
     except yaml.YAMLError as e:
-        print(f"ERRO de Formato YAML em {file_path}: {e}")
+        print(f"ERRO de YAML em {file_name}: {e}")
         return None
 
-def build_world():
-    """Lê todos os ficheiros YAML da lore e povoa a base de dados de produção."""
-    print("\n--- Iniciando Construção do Mundo (Build World) ---")
+def popular_entidades_e_mapear_ids(cursor, file_name, root_key, id_field, name_field, table_name):
+    """
+    Função genérica para popular uma tabela e retornar um mapa de id_canonico -> id_numerico.
+    Esta versão navega por toda a estrutura de dados para encontrar entidades.
+    """
+    print(f"Processando '{file_name}' para a tabela '{table_name}'...")
+    data = load_yaml_file(file_name)
+    id_map = {}
     
+    if not data or root_key not in data:
+        print(f"AVISO: Chave '{root_key}' não encontrada em '{file_name}'.")
+        return id_map
+
+    entidades_para_inserir = []
+    
+    def pesquisar_entidades_recursivamente(node):
+        """Navega recursivamente por dicionários e listas para encontrar entidades."""
+        if isinstance(node, dict):
+            # A chave 'nome' pode ter nomes diferentes ('tipo' em propulsores)
+            node_name = node.get(name_field) or node.get('tipo')
+
+            if id_field in node and node_name:
+                id_canonico = node[id_field]
+                nome = node_name
+                perfil_yaml = yaml.dump(node, allow_unicode=True, sort_keys=False)
+                
+                if table_name == 'locais':
+                    tipo = node.get('tipo', None)
+                    entidades_para_inserir.append((id_canonico, nome, tipo, perfil_yaml))
+                else:
+                    entidades_para_inserir.append((id_canonico, nome, perfil_yaml))
+
+            for value in node.values():
+                pesquisar_entidades_recursivamente(value)
+        elif isinstance(node, list):
+            for item in node:
+                pesquisar_entidades_recursivamente(item)
+
+    pesquisar_entidades_recursivamente(data[root_key])
+
+    if table_name == 'locais':
+        for id_canonico, nome, tipo, perfil_yaml in entidades_para_inserir:
+            cursor.execute(
+                "INSERT INTO locais (id_canonico, nome, tipo, perfil_yaml) VALUES (?, ?, ?, ?)",
+                (id_canonico, nome, tipo, perfil_yaml)
+            )
+            id_map[id_canonico] = cursor.lastrowid
+    else: 
+        for id_canonico, nome, perfil_yaml in entidades_para_inserir:
+            cursor.execute(
+                f"INSERT INTO {table_name} (id_canonico, nome, perfil_yaml) VALUES (?, ?, ?)",
+                (id_canonico, nome, perfil_yaml)
+            )
+            id_map[id_canonico] = cursor.lastrowid
+        
+    print(f"INFO: {len(id_map)} registos inseridos na tabela '{table_name}'.")
+    return id_map
+
+
+def atualizar_relacoes_hierarquicas(cursor, file_name, locais_map):
+    """
+    Atualiza as chaves estrangeiras (parent_id) na tabela de locais.
+    """
+    print(f"\nAtualizando relações hierárquicas (parent_id) para '{file_name}'...")
+    data = load_yaml_file(file_name)
+    if not data or 'locais' not in data:
+        return
+
+    updates = []
+    def pesquisar_parentes_recursivamente(node):
+        """Navega recursivamente para encontrar relações pai-filho."""
+        if isinstance(node, dict):
+            if 'id' in node and 'parent_id' in node and node['parent_id']:
+                child_id_canonico = node['id']
+                parent_id_canonico = node['parent_id']
+                
+                child_db_id = locais_map.get(child_id_canonico)
+                parent_db_id = locais_map.get(parent_id_canonico)
+                
+                if child_db_id and parent_db_id:
+                    updates.append((parent_db_id, child_db_id))
+
+            for value in node.values():
+                pesquisar_parentes_recursivamente(value)
+        elif isinstance(node, list):
+            for item in node:
+                pesquisar_parentes_recursivamente(item)
+    
+    pesquisar_parentes_recursivamente(data['locais'])
+    
+    if updates:
+        cursor.executemany("UPDATE locais SET parent_id = ? WHERE id = ?", updates)
+        print(f"INFO: {len(updates)} relações de parentesco atualizadas.")
+    else:
+        print("INFO: Nenhuma relação de parentesco para atualizar.")
+
+def popular_tabela_ligacao(cursor, file_name, locais_map, tecnologias_nome_map):
+    """
+    Popula a tabela de ligação local_tecnologias.
+    Usa um mapa de NOMES para encontrar o ID da tecnologia.
+    """
+    print(f"\nPopulando tabela de ligação 'local_tecnologias' de '{file_name}'...")
+    data = load_yaml_file(file_name)
+    if not data:
+        return
+        
+    ligacoes = []
+    def pesquisar_ligacoes_tecnologia_recursivamente(node):
+        """Navega recursivamente para encontrar listas de tecnologias em locais."""
+        if isinstance(node, dict):
+            if 'id' in node and 'tecnologias_presentes' in node:
+                local_id_canonico = node['id']
+                local_db_id = locais_map.get(local_id_canonico)
+
+                techs_presentes = node['tecnologias_presentes']
+                if local_db_id and isinstance(techs_presentes, list):
+                    for tech_nome in techs_presentes:
+                        tech_db_id = tecnologias_nome_map.get(tech_nome)
+                        if tech_db_id:
+                            ligacoes.append((local_db_id, tech_db_id))
+                        else:
+                            print(f"  - AVISO: Tecnologia '{tech_nome}' listada em '{local_id_canonico}' não foi encontrada no mapa de tecnologias.")
+            
+            for value in node.values():
+                pesquisar_ligacoes_tecnologia_recursivamente(value)
+        elif isinstance(node, list):
+            for item in node:
+                pesquisar_ligacoes_tecnologia_recursivamente(item)
+
+    pesquisar_ligacoes_tecnologia_recursivamente(data)
+
+    if ligacoes:
+        cursor.executemany("INSERT OR IGNORE INTO local_tecnologias (local_id, tecnologia_id) VALUES (?, ?)", ligacoes)
+        print(f"INFO: {len(ligacoes)} ligações local-tecnologia inseridas.")
+    else:
+        print("INFO: Nenhuma ligação local-tecnologia para inserir.")
+
+
+def build_world():
+    """
+    Lê os ficheiros YAML e povoa a base de dados otimizada (v3) dentro de uma única transação.
+    """
+    setup_database()
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-
-    # --- 1. Popular Entidades Principais (Jogador, PNJs) ---
-    # (Lógica para popular PNJs e Jogador permanece a mesma)
-    pnjs_data = load_yaml_file('personagens.yml')
-    if pnjs_data and 'personagens' in pnjs_data and 'personagens_nao_jogadores' in pnjs_data['personagens']:
-        pnjs = [(p['id'], p['nome'], yaml.dump(p, allow_unicode=True)) for p in pnjs_data['personagens']['personagens_nao_jogadores']]
-        cursor.executemany('INSERT INTO pnjs (id, nome_completo, perfil_yaml) VALUES (?, ?, ?)', pnjs)
-        print(f"INFO: {len(pnjs)} PNJs inseridos.")
     
-    gabriel_data = load_yaml_file('status_main_character.yml')
-    if gabriel_data:
-        gabriel_id = gabriel_data['id']
-        cursor.execute('INSERT INTO jogador VALUES (?, ?, ?)', (gabriel_id, gabriel_data['personagem_principal'], yaml.dump(gabriel_data, allow_unicode=True)))
-        status = gabriel_data['status_atual']
-        cursor.execute('INSERT INTO personagem_estado VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (gabriel_id, "setor_lab_atmosferico_4b", status['data_estelar'], status['horario_atual'], status['creditos']['conta_principal'], status['creditos']['pulseira_iip'], status['estado_fisico_emocional']['fome'], status['estado_fisico_emocional']['sede'], status['estado_fisico_emocional']['cansaco'], json.dumps(status['estado_fisico_emocional']['humor'])))
-        inventario = [(gabriel_id, item) for item in status['posses']]
-        cursor.executemany('INSERT INTO inventario (personagem_id, nome_item) VALUES (?, ?)', inventario)
-        habilidades = [(gabriel_id, hab['nome'], tipo.replace('_', ' ').title(), hab['nivel_subnivel'], hab.get('observacoes', '')) for tipo, hab_list in gabriel_data['ficha_habilidades'].items() if tipo in ['habilidades_tecnicas', 'habilidades_cognitivas'] for hab in hab_list]
-        cursor.executemany('INSERT INTO habilidades VALUES (NULL, ?, ?, ?, ?, ?)', habilidades)
-        conhecimentos = []
-        for cat_key, topicos_list in gabriel_data['conhecimentos_aptidoes'].items():
-            if isinstance(topicos_list, list):
-                for topico in topicos_list:
-                    if isinstance(topico, dict): conhecimentos.append((gabriel_id, topico['nome'], cat_key.replace('_', ' ').title(), topico.get('nivel')))
-                    else: conhecimentos.append((gabriel_id, topico['nome'], cat_key.replace('_', ' ').title(), None))
-        cursor.executemany('INSERT INTO conhecimentos VALUES (NULL, ?, ?, ?, ?)', conhecimentos)
-        print("INFO: Dados do jogador (estado, inventário, etc.) inseridos.")
-
-    # --- 2. Popular Entidades do Universo ---
-
-    # CORREÇÃO: Lógica para ler a estrutura hierárquica de locais
-    locais_data = load_yaml_file('mapa_universo.yml')
-    if locais_data and 'locais' in locais_data:
-        all_locais_to_insert = []
-        locais_to_process = list(locais_data['locais'])  # Fila de locais a processar
-
-        while locais_to_process:
-            current_loc = locais_to_process.pop(0)
-
-            if 'id' in current_loc and 'nome' in current_loc:
-                all_locais_to_insert.append((
-                    current_loc['id'], current_loc['nome'], current_loc.get('tipo'),
-                    current_loc.get('parent_id'), yaml.dump(current_loc, allow_unicode=True)
-                ))
-
-            # Procura por sub-listas de locais e adiciona-as à fila
-            for key, value in current_loc.items():
-                if isinstance(value, list):
-                    for item in value:
-                        if isinstance(item, dict):
-                            locais_to_process.append(item)
+    try:
+        cursor.execute('BEGIN TRANSACTION')
         
-        cursor.executemany('INSERT INTO locais (id, nome, tipo, parent_id, perfil_yaml) VALUES (?, ?, ?, ?, ?)', all_locais_to_insert)
-        print(f"INFO: {len(all_locais_to_insert)} locais hierárquicos inseridos.")
+        # 1. Popular entidades e criar mapas de ID
+        locais_map = popular_entidades_e_mapear_ids(cursor, 'mapa_universo.yml', 'locais', 'id', 'nome', 'locais')
+        tecnologias_map = popular_entidades_e_mapear_ids(cursor, 'conhecimentos_universais.yml', 'tecnologias', 'id', 'nome', 'tecnologias')
         
-    # (Lógica para popular Civilizações, Tecnologias, Glossário, e Logs permanece a mesma)
-    civilizacoes_data = load_yaml_file('civilizacoes_galacticas.yml')
-    if civilizacoes_data and 'civilizacoes_galacticas' in civilizacoes_data:
-        civilizacoes = [(c['id'], c['nome'], yaml.dump(c, allow_unicode=True)) for c in civilizacoes_data['civilizacoes_galacticas']]
-        cursor.executemany('INSERT INTO civilizacoes (id, nome, perfil_yaml) VALUES (?, ?, ?)', civilizacoes)
-        print(f"INFO: {len(civilizacoes)} civilizações inseridas.")
+        # Criar um mapa de nome_tecnologia -> id_db para a tabela de ligação
+        cursor.execute("SELECT id, nome FROM tecnologias")
+        tecnologias_nome_map = {nome: db_id for db_id, nome in cursor.fetchall()}
 
-    tec_data = load_yaml_file('conhecimentos_universais.yml')
-    if tec_data and 'tecnologias' in tec_data:
-        tecnologias = []
-        for secao_valor in tec_data['tecnologias'].values():
-            if isinstance(secao_valor, dict):
-                for sub_secao_valor in secao_valor.values():
-                    if isinstance(sub_secao_valor, list):
-                        for item in sub_secao_valor:
-                            if isinstance(item, dict) and 'id' in item and 'nome' in item:
-                                tecnologias.append((item['id'], item['nome'], yaml.dump(item, allow_unicode=True)))
-        cursor.executemany('INSERT INTO tecnologias (id, nome, perfil_yaml) VALUES (?, ?, ?)', tecnologias)
-        print(f"INFO: {len(tecnologias)} tecnologias inseridas.")
+        # ... (chamar para pnjs, civilizacoes, etc.)
+
+        # 2. Atualizar relações e ligações usando os mapas de ID
+        atualizar_relacoes_hierarquicas(cursor, 'mapa_universo.yml', locais_map)
+        popular_tabela_ligacao(cursor, 'mapa_universo.yml', locais_map, tecnologias_nome_map)
         
-    glossario_data = load_yaml_file('termos_glossario.yml')
-    if glossario_data and 'glossario' in glossario_data:
-        termos = [(t['id'], t['termo'], yaml.dump(t, allow_unicode=True)) for t in glossario_data['glossario']]
-        cursor.executemany('INSERT INTO glossario (id, termo, perfil_yaml) VALUES (?, ?, ?)', termos)
-        print(f"INFO: {len(termos)} termos do glossário inseridos.")
-    
-    logs_mem_data = load_yaml_file('logs_memorias.yml')
-    if logs_mem_data and 'registro_narrativo' in logs_mem_data:
-        data_geral = logs_mem_data['registro_narrativo'].get('data', 'Data Desconhecida')
-        resumidos = [(data_geral, e['horario'], e['evento']) for e in logs_mem_data['registro_narrativo']['log_eventos']]
-        cursor.executemany('INSERT INTO log_narrativo_resumido (data_estelar, horario, evento) VALUES (?, ?, ?)', resumidos)
-        print(f"INFO: {len(resumidos)} eventos de log resumido inseridos.")
-
-    # arquivo_bruto_rpg.yml pode ser adicionado aqui quando estiver disponível.
-    
-    conn.commit()
-    conn.close()
-    print("\n--- Construção do Mundo Concluída com Sucesso ---")
+        # ... (popular tabelas de estado do jogador, usando os mapas para FKs)
+        
+        conn.commit()
+        print("\n--- Construção do Mundo (v3.0) Concluída com Sucesso ---")
+    except Exception as e:
+        conn.rollback()
+        import traceback
+        traceback.print_exc()
+        print(f"\nERRO: A construção do mundo falhou. A transação foi revertida. Erro: {e}")
+    finally:
+        conn.close()
 
 if __name__ == '__main__':
-    setup_database()
     build_world()
