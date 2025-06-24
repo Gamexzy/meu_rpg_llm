@@ -259,38 +259,33 @@ locais:
     componentes:
       - "Estação de Treinamento com interface para simulações."
 
-estacoes_espaciais: # Nova seção adicionada
+estacoes_espaciais: 
   id: "diretorio_estacoes"
   titulo: "Diretório de Estações Espaciais"
-  descricao: >
-    Um catálogo das principais estações espaciais conhecidas, detalhando
-    sua função primária, localização e uma visão geral das tecnologias
-    presentes.
+  descricao: "Um catálogo das principais estações espaciais conhecidas, detalhando sua função primária, localização e uma visão geral das tecnologias presentes."
   lista_estacoes:
     - id: "estacao_vigilancia_solaris"
       nome: "Vigilância Solaris"
       localizacao: "Órbita baixa e estável em torno de Ytaris-4, Setor da Nebulosa Égide."
       funcao_primaria: "Centro de pesquisa atmosférica, monitoramento orbital e operações técnicas."
       tecnologias_presentes:
-        - "Gravidade Artificial"
-        - "Controle Ambiental Dinâmico"
-        - "Escudos de Micrometeoritos"
-        - "Terminais Inteligentes"
-        - "Pulseiras de Identificação Integrada (IIP)"
-        - "Sistemas de Comunicação (externa quântica e interna)"
-        - "Laboratórios Especializados"
-        - "Drones de Manutenção"
-        - "IA Setorial Auxiliar"
-        - "Assistentes Pessoais"
-        - "Refeitórios Automatizados"
-        - "Alojamentos Inteligentes"
+        - "tec_gravidade_artificial"
+        - "tec_controle_ambiental_dinamico"
+        - "tec_escudos_micrometeoritos"
+        - "tec_terminais_inteligentes"
+        - "tec_pulseiras_iip"
+        - "tec_sistemas_comunicacao"
+        - "tec_laboratorios_especializados"
+        - "tec_drones_manutencao"
+        - "tec_ia_setorial_auxiliar"
+        - "tec_assistentes_pessoais"
+        - "tec_refeitorios_automatizados"
+        - "tec_alojamentos_inteligentes"
     - id: "posto_avancado_echo7"
       nome: "Posto Avançado Echo-7"
       localizacao: "Margem da Espiral de Órion."
       funcao_primaria: "Pequena estação de reabastecimento e monitoramento da FUS."
-      tecnologias_presentes: "Sem informações detalhadas."
-    # Adicionar outras estações aqui, conforme descobertas.
-
+      tecnologias_presentes: [] # Lista vazia indica que os detalhes são desconhecidos
 
 meta:
   atualizacao_documento:
