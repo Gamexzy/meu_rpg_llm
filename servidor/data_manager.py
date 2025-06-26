@@ -1,35 +1,35 @@
 import sqlite3
 import os
 import json
-import datetime # Para gerar timestamps
-import asyncio # Necessário para rodar métodos assíncronos do ChromaDBManager
+import datetime
+import sys
 
-# --- Configuração de Caminhos ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-PROD_DATA_DIR = os.path.join(PROJECT_ROOT, 'dados_em_producao')
-DB_PATH = os.path.join(PROD_DATA_DIR, 'estado.db')
+# Adiciona o diretório da raiz do projeto ao sys.path para que o módulo config possa ser importado
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
+
+# Importar as configurações globais
+import config as config 
 
 class DataManager:
     """
-    API do Mundo (v5.8) - A única camada que interage diretamente com a base de dados SQLite.
+    API do Mundo (v5.11) - A única camada que interage DIRETAMENTE com a base de dados SQLite.
     Abstrai as consultas SQL e fornece métodos para o motor do jogo
     obter e modificar o estado do universo.
-    (Change: Adicionado suporte a id_canonico na tabela jogador_posses.
-             Métodos async e correção de chamadas a _get_type_id.)
+    (Change: Removida a dependência direta do ChromaDBManager. Todos os métodos de escrita são agora síncronos.)
     """
 
-    def __init__(self, db_path=DB_PATH, chroma_manager=None): # Adicionado chroma_manager
+    # NOVO: chroma_manager NÃO é mais recebido aqui no construtor
+    def __init__(self, db_path=config.DB_PATH_SQLITE): 
         """
         Inicializa o DataManager e estabelece a conexão com a base de dados.
         """
         self.db_path = db_path
-        self.chroma_manager = chroma_manager # Salva a instância do ChromaDBManager
 
         if not os.path.exists(self.db_path):
             raise FileNotFoundError(f"A base de dados não foi encontrada em '{self.db_path}'. "
                                     "Por favor, execute o script 'scripts/build_world.py' primeiro para criar o esquema vazio.")
-        print(f"DataManager (v5.8) conectado com sucesso a: {self.db_path}")
+        print(f"DataManager (v5.11) conectado com sucesso a: {self.db_path}")
 
     def _get_connection(self):
         """Retorna uma nova conexão com a base de dados com Row Factory."""
@@ -52,8 +52,6 @@ class DataManager:
                 if result:
                     return result['id']
                 else:
-                    # Não é um erro crítico se o tipo_id é apenas uma propriedade não usada em FOREING KEY
-                    # Mas para as tabelas principais (locais, elementos, personagens, faccoes), é crítico.
                     print(f"ERRO: Tipo '{type_name}' para a tabela '{table_name}' não encontrado em 'tipos_entidades'.")
                     return None
         except sqlite3.Error as e:
@@ -79,7 +77,7 @@ class DataManager:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 # Validação de nome de tabela para segurança
-                tabelas_validas = ['locais', 'elementos_universais', 'personagens', 'faccoes', 'jogador', 'jogador_posses'] # Adicionado jogador_posses
+                tabelas_validas = ['locais', 'elementos_universais', 'personagens', 'faccoes', 'jogador', 'jogador_posses', 'tipos_entidades', 'locais_acessos_diretos', 'relacoes_entidades'] # Adicionadas tabelas de relação/meta
                 if table_name not in tabelas_validas:
                     raise ValueError(f"Nome de tabela inválido: '{table_name}'. Use um dos seguintes: {', '.join(tabelas_validas)}")
                 
@@ -92,9 +90,11 @@ class DataManager:
                         LEFT JOIN tipos_entidades t2 ON t1.tipo_id = t2.id
                         WHERE t1.id_canonico = ?
                     """
-                else: # Tabelas como 'jogador' ou 'jogador_posses' não possuem tipo_id
+                elif 'id_canonico' in columns: # Para tabelas sem tipo_id, mas com id_canonico (ex: jogador, jogador_posses)
                     query = f"SELECT * FROM {table_name} WHERE id_canonico = ?"
-                
+                else: # Para tabelas de relação que não têm id_canonico como chave primária
+                    raise ValueError(f"Tabela '{table_name}' não suporta busca por id_canonico diretamente ou não tem tipo_id.")
+
                 cursor.execute(query, (canonical_id,))
                 resultado = cursor.fetchone()
                 
@@ -108,6 +108,29 @@ class DataManager:
         except (sqlite3.Error, ValueError) as e:
             print(f"Erro ao buscar entidade '{canonical_id}' em '{table_name}': {e}")
             return None
+    
+    def get_all_entities_from_table(self, table_name):
+        """
+        Retorna todos os registros de uma tabela especificada.
+        Ideal para exportação em massa para outros pilares.
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                # Validação de nome de tabela
+                tabelas_validas = ['locais', 'elementos_universais', 'personagens', 'faccoes', 'jogador', 
+                                   'jogador_habilidades', 'jogador_conhecimentos', 'jogador_posses',
+                                   'jogador_status_fisico_emocional', 'jogador_logs_memoria',
+                                   'local_elementos', 'locais_acessos_diretos', 'relacoes_entidades', 'tipos_entidades']
+                if table_name not in tabelas_validas:
+                    raise ValueError(f"Nome de tabela inválido para exportação: '{table_name}'.")
+                
+                query = f"SELECT * FROM {table_name}"
+                cursor.execute(query)
+                return [dict(row) for row in cursor.fetchall()]
+        except (sqlite3.Error, ValueError) as e:
+            print(f"ERRO ao obter todos os dados da tabela '{table_name}': {e}")
+            return []
             
     # --- Funções de Leitura de Locais (Hierarquia e Acessos) ---
 
@@ -197,7 +220,7 @@ class DataManager:
 
     # --- Funções de Leitura do Jogador ---
 
-    def get_player_full_status(self, player_canonical_id='pj_gabriel_oliveira'):
+    def get_player_full_status(self, player_canonical_id=config.DEFAULT_PLAYER_ID_CANONICO): # Usa config.DEFAULT_PLAYER_ID_CANONICO
         """Busca e agrega todas as informações de estado do jogador."""
         player_status = {}
         try:
@@ -245,8 +268,10 @@ class DataManager:
             return None
 
     # --- Funções de Escrita (Write) para Canonização Dinâmica ---
+    # NOTA: Todas as chamadas ao chroma_manager foram removidas para tornar esses métodos síncronos.
+    # A orquestração do ChromaDB agora é responsabilidade do AgenteMJ em main.py ou do sync_databases.py.
 
-    async def add_location(self, id_canonico, nome, tipo_nome, perfil_json_data=None, parent_id_canonico=None):
+    def add_location(self, id_canonico, nome, tipo_nome, perfil_json_data=None, parent_id_canonico=None):
         """Adiciona um novo local ao universo (Canonização).
         'tipo_nome' deve ser o nome textual do tipo (ex: 'Estação Espacial')."""
         
@@ -276,19 +301,13 @@ class DataManager:
                 conn.commit()
                 print(f"INFO: Local '{nome}' ({id_canonico}) adicionado com ID {new_local_id}.")
                 
-                # --- Adicionar/Atualizar ao ChromaDB ---
-                if self.chroma_manager:
-                    text_content = f"Local: {nome}. Tipo: {tipo_nome}. Descrição: {perfil_json_data.get('descricao', 'N/A')}. Propriedades: {json.dumps(perfil_json_data)}"
-                    metadata = {"id_canonico": id_canonico, "tipo": "local", "nome": nome, "subtipo": tipo_nome}
-                    await self.chroma_manager.add_or_update_lore(id_canonico, text_content, metadata) 
-
                 return new_local_id
         except sqlite3.Error as e:
             conn.rollback()
             print(f"ERRO ao adicionar local '{nome}' ({id_canonico}): {e}")
             return None
 
-    async def add_or_get_location(self, id_canonico, nome, tipo_nome, perfil_json_data=None, parent_id_canonico=None):
+    def add_or_get_location(self, id_canonico, nome, tipo_nome, perfil_json_data=None, parent_id_canonico=None):
         """
         Verifica se um local com o id_canonico já existe. Se existir, retorna seus detalhes.
         Caso contrário, cria o novo local e retorna seus detalhes.
@@ -299,9 +318,10 @@ class DataManager:
             return existing_loc['id'] # Retorna o ID interno
         else:
             print(f"INFO: Local '{nome}' ({id_canonico}) não encontrado. Criando novo local.")
-            return await self.add_location(id_canonico, nome, tipo_nome, perfil_json_data, parent_id_canonico)
+            # Chame add_location diretamente (agora síncrono)
+            return self.add_location(id_canonico, nome, tipo_nome, perfil_json_data, parent_id_canonico)
 
-    async def add_player(self, id_canonico, nome, local_inicial_id_canonico, perfil_completo_data):
+    def add_player(self, id_canonico, nome, local_inicial_id_canonico, perfil_completo_data):
         """
         Adiciona um novo jogador ao banco de dados e define sua localização inicial.
         'creditos_conta' e outros atributos agora devem vir DENTRO de 'perfil_completo_data'.
@@ -327,12 +347,6 @@ class DataManager:
                 conn.commit()
                 print(f"INFO: Jogador '{nome}' ({id_canonico}) criado com ID {player_id} no local '{local_inicial_id_canonico}'.")
                 
-                # --- Adicionar/Atualizar ao ChromaDB ---
-                if self.chroma_manager:
-                    text_content = f"Jogador: {nome}. ID: {id_canonico}. Perfil: {json.dumps(perfil_completo_data)}"
-                    metadata = {"id_canonico": id_canonico, "tipo": "jogador", "nome": nome}
-                    await self.chroma_manager.add_or_update_lore(id_canonico, text_content, metadata)
-
                 return player_id
         except sqlite3.IntegrityError as e:
             print(f"ERRO: Jogador com ID canônico '{id_canonico}' já existe: {e}")
@@ -343,7 +357,7 @@ class DataManager:
             print(f"ERRO ao adicionar jogador '{nome}': {e}")
             return None
 
-    async def add_player_vitals(self, jogador_id_canonico, fome="Normal", sede="Normal", cansaco="Descansado", humor="Neutro", motivacao="Neutro", timestamp_atual=None):
+    def add_player_vitals(self, jogador_id_canonico, fome="Normal", sede="Normal", cansaco="Descansado", humor="Neutro", motivacao="Neutro", timestamp_atual=None):
         """
         Adiciona ou atualiza o status físico e emocional do jogador.
         'timestamp_atual' agora é o único campo de data/hora (formato अवलंब-MM-DD HH:MM:SS).
@@ -390,7 +404,7 @@ class DataManager:
             print(f"ERRO ao adicionar/atualizar vitals do jogador '{jogador_id_canonico}': {e}")
             return False
 
-    async def add_player_skill(self, jogador_id_canonico, categoria, nome, nivel_subnivel=None, observacoes=None):
+    def add_player_skill(self, jogador_id_canonico, categoria, nome, nivel_subnivel=None, observacoes=None):
         """Adiciona uma nova habilidade ao jogador."""
         try:
             with self._get_connection() as conn:
@@ -410,7 +424,7 @@ class DataManager:
             print(f"ERRO ao adicionar habilidade para '{jogador_id_canonico}': {e}")
             return False
 
-    async def add_player_knowledge(self, jogador_id_canonico, categoria, nome, nivel=1, descricao=None):
+    def add_player_knowledge(self, jogador_id_canonico, categoria, nome, nivel=1, descricao=None):
         """Adiciona um novo conhecimento ao jogador."""
         try:
             with self._get_connection() as conn:
@@ -430,7 +444,7 @@ class DataManager:
             print(f"ERRO ao adicionar conhecimento para '{jogador_id_canonico}': {e}")
             return False
 
-    async def add_player_possession(self, jogador_id_canonico, item_nome, posse_id_canonico, perfil_json_data=None): # NOVO: posse_id_canonico
+    def add_player_possession(self, jogador_id_canonico, item_nome, posse_id_canonico, perfil_json_data=None):
         """Adiciona uma nova posse ao jogador."""
         try:
             with self._get_connection() as conn:
@@ -448,19 +462,13 @@ class DataManager:
                 conn.commit()
                 print(f"INFO: Posse '{item_nome}' ({posse_id_canonico}) adicionada para '{jogador_id_canonico}'.")
 
-                # --- Adicionar/Atualizar ao ChromaDB ---
-                if self.chroma_manager:
-                    text_content = f"Posse: {item_nome}. Detalhes: {json.dumps(perfil_json_data)}. Pertence a: {jogador_id_canonico}."
-                    metadata = {"id_canonico": posse_id_canonico, "tipo": "posse", "nome": item_nome, "jogador": jogador_id_canonico}
-                    await self.chroma_manager.add_or_update_lore(posse_id_canonico, text_content, metadata)
-
                 return True
         except sqlite3.Error as e:
             conn.rollback()
             print(f"ERRO ao adicionar posse para '{jogador_id_canonico}': {e}")
             return False
 
-    async def add_log_memory(self, jogador_id_canonico, tipo, conteudo, timestamp_evento=None):
+    def add_log_memory(self, jogador_id_canonico, tipo, conteudo, timestamp_evento=None):
         """
         Adiciona um log ou memória consolidada para o jogador.
         'timestamp_evento' agora é o único campo de data/hora (formato अवलंब-MM-DD HH:MM:SS).
@@ -489,7 +497,7 @@ class DataManager:
             print(f"ERRO ao adicionar log/memória para '{jogador_id_canonico}': {e}")
             return False
 
-    async def update_player_location(self, player_canonical_id, new_local_canonical_id):
+    def update_player_location(self, player_canonical_id, new_local_canonical_id):
         """Atualiza a localização atual do jogador."""
         try:
             with self._get_connection() as conn:
@@ -517,8 +525,10 @@ class DataManager:
             return False
 
     # --- Métodos para Adicionar Relações Dinâmicas (para o DataManager canonizar) ---
+    # NOTA: As chamadas ao chroma_manager foram removidas para tornar esses métodos síncronos.
+    # A orquestração do ChromaDB agora é responsabilidade do AgenteMJ em main.py ou do sync_databases.py.
 
-    async def add_direct_access_relation(self, origem_id_canonico, destino_id_canonico, tipo_acesso=None, condicoes_acesso=None):
+    def add_direct_access_relation(self, origem_id_canonico, destino_id_canonico, tipo_acesso=None, condicoes_acesso=None):
         """
         Adiciona uma relação de acesso direto entre dois locais.
         """
@@ -541,11 +551,6 @@ class DataManager:
                 conn.commit()
                 if cursor.rowcount > 0:
                     print(f"INFO: Relação de acesso direto entre '{origem_id_canonico}' e '{destino_id_canonico}' adicionada.")
-                    # Embora seja uma relação, você pode querer indexar metadados dela no ChromaDB
-                    if self.chroma_manager:
-                        text_content = f"Acesso direto entre {origem_entity.get('nome', origem_id_canonico)} e {destino_entity.get('nome', destino_id_canonico)}. Tipo: {tipo_acesso}. Condições: {condicoes_acesso}."
-                        metadata = {"id_canonico": f"acesso_{origem_id_canonico}_{destino_id_canonico}", "tipo": "acesso_direto", "origem": origem_id_canonico, "destino": destino_id_canonico}
-                        await self.chroma_manager.add_or_update_lore(f"acesso_{origem_id_canonico}_{destino_id_canonico}", text_content, metadata)
                     return True
                 else:
                     print(f"AVISO: Relação de acesso direto entre '{origem_id_canonico}' e '{destino_id_canonico}' já existe ou houve problema na inserção.")
@@ -555,7 +560,7 @@ class DataManager:
             print(f"ERRO ao adicionar relação de acesso direto: {e}")
             return False
 
-    async def add_universal_relation(self, origem_id_canonico, origem_tipo_tabela, tipo_relacao, destino_id_canonico, destino_tipo_tabela, propriedades_data=None):
+    def add_universal_relation(self, origem_id_canonico, origem_tipo_tabela, tipo_relacao, destino_id_canonico, destino_tipo_tabela, propriedades_data=None):
         """
         Adiciona uma relação universal na tabela 'relacoes_entidades'.
         origem_tipo_tabela e destino_tipo_tabela devem ser os nomes das tabelas (ex: 'personagens', 'locais').
@@ -575,13 +580,6 @@ class DataManager:
                 conn.commit()
                 print(f"INFO: Relação universal '{tipo_relacao}' criada entre '{origem_id_canonico}' ({origem_tipo_tabela}) e '{destino_id_canonico}' ({destino_tipo_tabela}).")
                 
-                # --- Adicionar/Atualizar ao ChromaDB ---
-                if self.chroma_manager:
-                    text_content = f"Relação: {tipo_relacao} entre {origem_id_canonico} ({origem_tipo_tabela}) e {destino_id_canonico} ({destino_tipo_tabela}). Propriedades: {json.dumps(propriedades_data)}"
-                    metadata = {"id_canonico": f"rel_{origem_id_canonico}_{destino_id_canonico}_{tipo_relacao}", "tipo": "relacao_universal", "origem": origem_id_canonico, "destino": destino_id_canonico, "tipo_relacao": tipo_relacao}
-                    # O ID precisa ser único, então combine os IDs canônicos e o tipo de relação
-                    await self.chroma_manager.add_or_update_lore(f"rel_{origem_id_canonico}_{destino_id_canonico}_{tipo_relacao}", text_content, metadata)
-
                 return cursor.lastrowid
         except sqlite3.Error as e:
             conn.rollback()
@@ -611,8 +609,7 @@ class DataManager:
             return False
         
         # Validar nome da coluna para evitar SQL Injection básico
-        # Uma validação mais robusta pode ser necessária para produção
-        if not column_name.replace('_', '').isalnum(): # Apenas letras, números e underscores
+        if not column_name.replace('_', '').isalnum(): 
             print(f"ERRO: Nome da coluna '{column_name}' inválido. Use apenas caracteres alfanuméricos e underscores.")
             return False
 
@@ -628,13 +625,11 @@ class DataManager:
                     return True # Considera como sucesso, pois a coluna já está lá
 
                 if default_value is not None:
-                    # Converte o valor padrão para uma representação SQL segura
                     if isinstance(default_value, str):
                         default_sql = f"'{default_value}'"
                     elif isinstance(default_value, (int, float)):
                         default_sql = str(default_value)
                     else:
-                        # Para outros tipos, como BLOB, pode ser necessário tratamento especial
                         print(f"AVISO: Valor padrão de tipo não suportado diretamente para SQL: {type(default_value)}. Inserindo NULL.")
                         default_sql = "NULL"
                     query = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type.upper()} DEFAULT {default_sql};"
@@ -650,7 +645,7 @@ class DataManager:
             print(f"ERRO ao adicionar coluna '{column_name}' à tabela '{table_name}': {e}")
             return False
 
-    async def add_element_universal(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
+    def add_element_universal(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
         """Adiciona um novo elemento universal (tecnologia, magia, recurso, etc.)."""
         tipo_id_numerico = self._get_type_id('elementos_universais', tipo_nome)
         if tipo_id_numerico is None:
@@ -666,19 +661,13 @@ class DataManager:
                 conn.commit()
                 print(f"INFO: Elemento Universal '{nome}' ({id_canonico}) adicionado com ID {new_id}.")
 
-                # --- Adicionar/Atualizar ao ChromaDB ---
-                if self.chroma_manager:
-                    text_content = f"Elemento Universal: {nome}. Tipo: {tipo_nome}. Detalhes: {json.dumps(perfil_json_data)}"
-                    metadata = {"id_canonico": id_canonico, "tipo": "elemento_universal", "nome": nome, "subtipo": tipo_nome}
-                    await self.chroma_manager.add_or_update_lore(id_canonico, text_content, metadata) 
-
                 return new_id
         except sqlite3.Error as e:
             conn.rollback()
             print(f"ERRO ao adicionar elemento universal '{nome}' ({id_canonico}): {e}")
             return None
 
-    async def add_or_get_element_universal(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
+    def add_or_get_element_universal(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
         """Verifica se um elemento universal já existe. Se existir, retorna seus detalhes. Caso contrário, cria e retorna."""
         existing_entity = self.get_entity_details_by_canonical_id('elementos_universais', id_canonico)
         if existing_entity:
@@ -686,9 +675,10 @@ class DataManager:
             return existing_entity['id']
         else:
             print(f"INFO: Elemento Universal '{nome}' ({id_canonico}) não encontrado. Criando novo elemento.")
-            return await self.add_element_universal(id_canonico, nome, tipo_nome, perfil_json_data)
+            # Chame add_element_universal diretamente (agora síncrono)
+            return self.add_element_universal(id_canonico, nome, tipo_nome, perfil_json_data)
 
-    async def add_personagem(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
+    def add_personagem(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
         """Adiciona um novo personagem (NPC, monstro, etc.)."""
         tipo_id_numerico = self._get_type_id('personagens', tipo_nome)
         if tipo_id_numerico is None:
@@ -704,19 +694,13 @@ class DataManager:
                 conn.commit()
                 print(f"INFO: Personagem '{nome}' ({id_canonico}) adicionado com ID {new_id}.")
 
-                # --- Adicionar/Atualizar ao ChromaDB ---
-                if self.chroma_manager:
-                    text_content = f"Personagem: {nome}. Tipo: {tipo_nome}. Perfil: {json.dumps(perfil_json_data)}"
-                    metadata = {"id_canonico": id_canonico, "tipo": "personagem", "nome": nome, "subtipo": tipo_nome}
-                    await self.chroma_manager.add_or_update_lore(id_canonico, text_content, metadata)
-
                 return new_id
         except sqlite3.Error as e:
             conn.rollback()
             print(f"ERRO ao adicionar personagem '{nome}' ({id_canonico}): {e}")
             return None
 
-    async def add_or_get_personagem(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
+    def add_or_get_personagem(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
         """Verifica se um personagem já existe. Se existir, retorna seus detalhes. Caso contrário, cria e retorna."""
         existing_entity = self.get_entity_details_by_canonical_id('personagens', id_canonico)
         if existing_entity:
@@ -724,9 +708,9 @@ class DataManager:
             return existing_entity['id']
         else:
             print(f"INFO: Personagem '{nome}' ({id_canonico}) não encontrado. Criando novo personagem.")
-            return await self.add_personagem(id_canonico, nome, tipo_nome, perfil_json_data)
+            return self.add_personagem(id_canonico, nome, tipo_nome, perfil_json_data)
 
-    async def add_faccao(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
+    def add_faccao(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
         """Adiciona uma nova facção (reino, corporação, etc.)."""
         tipo_id_numerico = self._get_type_id('faccoes', tipo_nome)
         if tipo_id_numerico is None:
@@ -742,19 +726,13 @@ class DataManager:
                 conn.commit()
                 print(f"INFO: Facção '{nome}' ({id_canonico}) adicionada com ID {new_id}.")
 
-                # --- Adicionar/Atualizar ao ChromaDB ---
-                if self.chroma_manager:
-                    text_content = f"Facção: {nome}. Tipo: {tipo_nome}. Perfil: {json.dumps(perfil_json_data)}"
-                    metadata = {"id_canonico": id_canonico, "tipo": "faccao", "nome": nome, "subtipo": tipo_nome}
-                    await self.chroma_manager.add_or_update_lore(id_canonico, text_content, metadata)
-
                 return new_id
         except sqlite3.Error as e:
             conn.rollback()
             print(f"ERRO ao adicionar facção '{nome}' ({id_canonico}): {e}")
             return None
 
-    async def add_or_get_faccao(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
+    def add_or_get_faccao(self, id_canonico, nome, tipo_nome, perfil_json_data=None):
         """Verifica se uma facção já existe. Se existir, retorna seus detalhes. Caso contrário, cria e retorna."""
         existing_entity = self.get_entity_details_by_canonical_id('faccoes', id_canonico)
         if existing_entity:
@@ -762,4 +740,4 @@ class DataManager:
             return existing_entity['id']
         else:
             print(f"INFO: Facção '{nome}' ({id_canonico}) não encontrado. Criando nova facção.")
-            return await self.add_faccao(id_canonico, nome, tipo_nome, perfil_json_data)
+            return self.add_faccao(id_canonico, nome, tipo_nome, perfil_json_data)

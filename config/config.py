@@ -30,7 +30,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GENERATIVE_MODEL = "gemini-2.0-flash" 
 
 # Modelo de Embedding
-EMBEDDING_MODEL = "gemini-embedding-exp-03-07" # Ou "text-embedding-004" se preferir o estável
+EMBEDDING_MODEL = "all-MiniLM-L6-v2" # Ou "text-embedding-004" se preferir o estável
 
 # --- Outras Configurações Globais (Exemplos) ---
 DEFAULT_PLAYER_ID_CANONICO = 'pj_gabriel_oliveira'

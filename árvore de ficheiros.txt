@@ -1,0 +1,14 @@
+meu_rpg_llm/
+├── .github/
+│   └── workflows/
+│       └── python-app.yml         # Configuração de workflow do GitHub Actions (YAML)
+├── config/
+│   └── config.py                  # Configurações globais do projeto (Python Script)
+├── scripts/
+│   └── build_world.py             # Script para construir o esquema do banco de dados (Python Script)
+├── servidor/
+│   ├── chromadb_manager.py        # Gestor do ChromaDB (Banco de Dados Vetorial) (Python Script)
+│   ├── data_manager.py            # Gestor de dados SQLite (Pilar B) (Python Script)
+│   ├── main.py                    # Agente Mestre de Jogo (Lógica Principal) (Python Script)
+│   └── neo4j_manager.py           # Gestor do Neo4j (Banco de Dados de Grafo) (Python Script)
+└── requirements.txt               # Dependências do Python

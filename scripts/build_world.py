@@ -2,8 +2,14 @@ import sqlite3
 import os
 import sys
 
+# Adiciona o diretório da raiz do projeto ao sys.path para que o módulo config possa ser importado
+# Assumindo que o script build_world.py está em meu_rpg_llm/scripts/
+# E o config.py está em meu_rpg_llm/config/
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
+
 # NOVO: Importar as configurações globais
-import config.config as config # Assumindo que config.py está na pasta 'config'
+import config as config 
 
 def create_meta_tables(cursor):
     """Cria as tabelas de lookup para os tipos de entidades."""
@@ -205,24 +211,25 @@ def populate_meta_tables(cursor):
 
 def setup_database(cursor):
     """
-    Cria a estrutura completa e vazia da base de dados (v9.3).
-    Versão: 9.3 - Usa configurações de config.py.
+    Cria a estrutura completa e vazia da base de dados (v9.4).
+    Versão: 9.4 - Usa configurações de config.py e ajustado para a árvore de ficheiros.
     """
-    print("--- Configurando a Base de Dados (v9.3) ---")
+    print("--- Configurando a Base de Dados (v9.4) ---")
     create_meta_tables(cursor)
     create_core_tables(cursor)
     create_player_tables(cursor)
     create_relationship_tables(cursor)
     create_indexes(cursor)
     populate_meta_tables(cursor)
-    print("SUCESSO: Base de dados v9.3 configurada com tabelas vazias e tipos preenchidos.")
+    print("SUCESSO: Base de dados v9.4 configurada com tabelas vazias e tipos preenchidos.")
 
 def main():
     """
     Função principal que orquestra a criação do esquema do banco de dados.
     """
-    os.makedirs(config.PROD_DATA_DIR, exist_ok=True) # Usa config.PROD_DATA_DIR
-    if os.path.exists(config.DB_PATH_SQLITE): # Usa config.DB_PATH_SQLITE
+    # Usa config.PROD_DATA_DIR e config.DB_PATH_SQLITE
+    os.makedirs(config.PROD_DATA_DIR, exist_ok=True) 
+    if os.path.exists(config.DB_PATH_SQLITE): 
         os.remove(config.DB_PATH_SQLITE) # Remove o DB existente para garantir um build limpo
         print(f"INFO: Arquivo de banco de dados existente '{config.DB_PATH_SQLITE}' removido.")
         
@@ -233,7 +240,7 @@ def main():
     try:
         setup_database(cursor)
         conn.commit()
-        print(f"\n--- Estrutura do Mundo (v9.3) Criada com Sucesso ---")
+        print(f"\n--- Estrutura do Mundo (v9.4) Criada com Sucesso ---")
         print(f"O arquivo '{config.DB_PATH_SQLITE}' foi criado e está pronto para uso.")
         
     except Exception as e:
