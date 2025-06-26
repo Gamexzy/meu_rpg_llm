@@ -121,7 +121,7 @@ locais:
     parent_id: "estacao_vigilancia_solaris"
     localizacao: "Próximo à Ala Leste - Setor de Triagem."
     acessos:
-      - "Refeitório Central"
+      - "setor_refeitorio_delta1"
       - "Salas de descanso"
       - "Varanda de observação lateral"
 
