@@ -1,7 +1,7 @@
 import os
 import sys
 import asyncio
-import shutil # Importar shutil para exclusão de diretórios
+# import shutil # Não precisamos mais de shutil se não vamos excluir o diretório
 
 # Adiciona o diretório da raiz do projeto ao sys.path para que os módulos possam ser importados
 # Assumindo que o script sync_databases.py está em meu_rpg_llm/servidor/
@@ -22,11 +22,10 @@ class DatabaseSynchronizer:
     Orquestrador para a sincronização em lote de todos os pilares de dados (SQLite, Neo4j, ChromaDB).
     Responsabilidade: Ler todos os dados do SQLite e usá-los para construir/reconstruir
     os outros pilares, garantindo a consistência inicial.
-    Versão: 1.0.2 - Adicionada limpeza forçada do diretório do ChromaDB.
+    Versão: 1.0.3 - Removida exclusão forçada de bancos de dados. Agora persiste dados.
     """
     def __init__(self):
-        print("--- Inicializando Sincronizador de Bases de Dados (v1.0.2) ---")
-        # O DataManager não recebe chroma_manager aqui, conforme a nova arquitetura
+        print("--- Inicializando Sincronizador de Bases de Dados (v1.0.3) ---")
         self.data_manager = DataManager() 
         self.chroma_manager = ChromaDBManager()
         self.neo4j_manager = Neo4jManager()
@@ -41,7 +40,6 @@ class DatabaseSynchronizer:
         
         all_data = {}
         
-        # Lista de todas as tabelas das quais queremos exportar os dados
         tables_to_export = [
             'locais', 
             'elementos_universais', 
@@ -56,7 +54,7 @@ class DatabaseSynchronizer:
             'local_elementos', 
             'locais_acessos_diretos', 
             'relacoes_entidades', 
-            'tipos_entidades' # Necessário para o mapeamento de tipos nos outros pilares
+            'tipos_entidades'
         ]
 
         for table_name in tables_to_export:
@@ -72,56 +70,36 @@ class DatabaseSynchronizer:
     async def sync_all_databases(self):
         """
         Executa o processo completo de sincronização:
-        1. Limpa e recria o esquema do SQLite (via build_world.py externo).
-        2. Limpa fisicamente o diretório do ChromaDB.
-        3. Lê todos os dados do SQLite.
-        4. Constrói o Neo4j a partir desses dados.
-        5. Constrói o ChromaDB a partir desses dados.
+        1. Lê todos os dados do SQLite (sem recriar o esquema ou limpar).
+        2. Constrói o Neo4j a partir desses dados.
+        3. Constrói o ChromaDB a partir desses dados.
         """
         print("\n--- Iniciando Sincronização COMPLETA dos Pilares de Dados ---")
         
-        # Passo 1: Garantir que o esquema do SQLite esteja limpo e pronto (chamando build_world.py)
-        print("INFO: A executar build_world.py para criar/limpar o esquema do SQLite...")
-        build_world_script_path = os.path.join(PROJECT_ROOT, 'scripts', 'build_world.py')
-        os.system(f'python "{build_world_script_path}"')
-        print("INFO: Esquema do SQLite criado/limpo.")
-
-        # NOVO: Passo 2: Excluir fisicamente o diretório do ChromaDB para garantir uma recriação limpa
-        chroma_db_path = config.CHROMA_PATH
-        if os.path.exists(chroma_db_path):
-            print(f"INFO: Excluindo diretório existente do ChromaDB em '{chroma_db_path}' para garantir uma recriação limpa...")
-            try:
-                shutil.rmtree(chroma_db_path)
-                print("INFO: Diretório do ChromaDB excluído com sucesso.")
-            except Exception as e:
-                print(f"ERRO: Falha ao excluir o diretório do ChromaDB: {e}. Por favor, exclua manualmente se o problema persistir.")
-                # Se não puder excluir, não podemos garantir a dimensão correta.
-                # Continuamos, mas o erro pode persistir.
-        else:
-            print(f"INFO: Diretório do ChromaDB '{chroma_db_path}' não encontrado. Criará um novo.")
-
-
-        # Passo 3: População inicial do SQLite.
-        # Este script assume que o main.py (ou setup_initial_campaign)
-        # foi executado PELO MENOS UMA VEZ para popular o SQLite com os dados INICIAIS de campanha.
-        # Ele não fará a população do SQLite por si só.
-        print("\nAVISO: A população inicial do SQLite com dados de campanha (jogador, locais, etc.)")
-        print("AVISO: não é feita por este script. Certifique-se de que o 'main.py' (com '_setup_initial_campaign')")
-        print("AVISO: foi executado pelo menos uma vez para popular o SQLite antes de rodar este sincronizador,")
-        print("AVISO: ou o Neo4j e ChromaDB estarão vazios.")
+        # REMOVIDO: os.system(f'python "{build_world_script_path}"')
+        # REMOVIDO: Lógica de exclusão física do diretório do ChromaDB.
         
-        # Passo 4: Ler todos os dados do SQLite usando o DataManager
+        print("INFO: O esquema do SQLite e o diretório do ChromaDB não serão recriados ou limpos automaticamente por este script.")
+        print("AVISO: Certifique-se de que o 'build_world.py' foi executado pelo menos uma vez para criar o esquema inicial.")
+        print("AVISO: A população inicial do SQLite com dados de campanha (jogador, locais, etc.)")
+        print("AVISO: é feita pelo 'main.py' (com '_setup_initial_campaign') ou por métodos diretos do DataManager.")
+        
+        # Passo 1: Ler todos os dados do SQLite usando o DataManager
         all_sqlite_data = await self._get_all_data_from_sqlite()
 
-        # Passo 5: Constrói o Neo4j a partir dos dados do DataManager
+        # Passo 2: Constrói o Neo4j a partir dos dados do DataManager
         print("\n--- Construindo o Neo4j (Pilar C) ---")
-        await self.neo4j_manager.build_graph_from_data(all_sqlite_data) # AGORA PASSA OS DADOS
+        # O build_graph_from_data já limpa e recria o grafo Neo4j internamente,
+        # então os dados existentes serão substituídos pelos dados do SQLite.
+        await self.neo4j_manager.build_graph_from_data(all_sqlite_data)
         print("SUCESSO: Neo4j sincronizado.")
-        self.neo4j_manager.close() # Fechar a conexão do Neo4j após a construção
+        self.neo4j_manager.close()
 
-        # Passo 6: Constrói o ChromaDB a partir dos dados do DataManager
+        # Passo 3: Constrói o ChromaDB a partir dos dados do DataManager
         print("\n--- Construindo o ChromaDB (Pilar A) ---")
-        await self.chroma_manager.build_collection_from_data(all_sqlite_data) # AGORA PASSA OS DADOS
+        # O build_collection_from_data já deleta e recria a coleção ChromaDB internamente,
+        # garantindo que ela seja populada com a dimensão correta.
+        await self.chroma_manager.build_collection_from_data(all_sqlite_data)
         print("SUCESSO: ChromaDB sincronizado.")
 
         print("\n--- Sincronização COMPLETA dos Pilares de Dados CONCLUÍDA ---")
@@ -136,4 +114,3 @@ if __name__ == '__main__':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     asyncio.run(main())
-

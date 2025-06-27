@@ -8,8 +8,6 @@ import chromadb
 from chromadb.utils import embedding_functions
 
 # Importar a biblioteca oficial google-generativeai.
-# Ainda manteremos este import para outras funcionalidades do Gemini, se necessário,
-# mas para embeddings, usaremos um modelo local.
 import google.generativeai as genai
 
 # Importar a biblioteca SentenceTransformer para modelos de embedding locais
@@ -23,14 +21,14 @@ class ChromaDBManager:
     """
     API dedicada para interagir com o Pilar A (Base de Dados Vetorial - ChromaDB).
     Responsável por armazenar e buscar embeddings para a lore do jogo.
-    Versão: 1.3.8 - Alterado para usar modelo de embedding local (SentenceTransformer).
+    Versão: 1.3.9 - Adaptado para usar display_name na construção de documentos e metadados de embedding.
     """
     def __init__(self, chroma_path=config.CHROMA_PATH):
         """Inicializa o gestor e a conexão com o ChromaDB."""
         self.chroma_client = chromadb.PersistentClient(path=chroma_path)
         
-        # Opcional: Ainda verificar a API Key do Gemini se você planeja usar outros recursos do Gemini
-        # (além de embeddings, como geração de texto).
+        # A chave de API será lida automaticamente da variável de ambiente GOOGLE_API_KEY ou GEMINI_API_KEY
+        # pela biblioteca 'google.generativeai'.
         if not config.GEMINI_API_KEY:
             print("AVISO: GEMINI_API_KEY não definida em config.py ou nas variáveis de ambiente. Chamadas para a API de geração de texto do Gemini podem falhar.")
             self.genai_initialized = False # Indica que a API remota do Gemini pode não funcionar
@@ -40,22 +38,17 @@ class ChromaDBManager:
 
 
         # Carregar um modelo de embedding local.
-        # 'all-MiniLM-L6-v2' é um bom modelo leve e eficiente para começar (dimensão 384).
-        # Você pode experimentar outros modelos maiores se precisar de mais precisão.
         print(f"INFO: Carregando modelo de embedding local: {config.EMBEDDING_MODEL}")
         try:
-            # Note que EMBEDDING_MODEL agora será o nome de um modelo Sentence-Transformer
             self.local_embedding_model = SentenceTransformer(config.EMBEDDING_MODEL)
-            # A dimensão do embedding será a do modelo carregado (ex: 384 para all-MiniLM-L6-v2)
             self.embedding_dimension = self.local_embedding_model.get_sentence_embedding_dimension()
             print(f"INFO: Modelo de embedding local '{config.EMBEDDING_MODEL}' carregado. Dimensão: {self.embedding_dimension}")
         except Exception as e:
             print(f"ERRO CRÍTICO: Falha ao carregar modelo de embedding local '{config.EMBEDDING_MODEL}': {e}")
             self.local_embedding_model = None
-            self.embedding_dimension = 768 # Fallback, mas o ideal é que o modelo seja carregado
+            self.embedding_dimension = 384 # Fallback para uma dimensão comum
             
         # A coleção será obtida ou criada, e a dimensão será inferida do primeiro embedding adicionado.
-        # Não especificamos embedding_function aqui para permitir a inferência.
         self.collection = self.chroma_client.get_or_create_collection(
             name="rpg_lore_collection"
         )
@@ -72,12 +65,11 @@ class ChromaDBManager:
             return []
 
         try:
-            # Gerar embedding usando o modelo local
             embedding = self.local_embedding_model.encode(text).tolist()
             return embedding
         except Exception as e:
             print(f"ERRO ao gerar embedding com modelo local: {e}. Texto: {text[:50]}...")
-            return [0.0] * self.embedding_dimension # Retorna um embedding vazio com a dimensão correta
+            return [0.0] * self.embedding_dimension
 
 
     async def build_collection_from_data(self, all_sqlite_data):
@@ -88,16 +80,12 @@ class ChromaDBManager:
         print("\n--- A construir o Pilar A (ChromaDB) a partir de dados fornecidos ---")
         
         try:
-            # Tenta deletar a coleção existente para garantir uma reconstrução limpa.
-            # Ignora erros se a coleção não existir.
             try:
                 self.chroma_client.delete_collection(name="rpg_lore_collection")
                 print("INFO: Coleção ChromaDB 'rpg_lore_collection' existente deletada para reconstrução.")
             except Exception as e:
-                # Pode falhar se a coleção não existir, o que é aceitável.
                 print(f"AVISO: Não foi possível deletar a coleção ChromaDB (pode não existir): {e}")
 
-            # Agora, obtém ou cria a coleção. A dimensão será inferida do primeiro embedding adicionado.
             self.collection = self.chroma_client.get_or_create_collection(
                 name="rpg_lore_collection"
             )
@@ -105,7 +93,7 @@ class ChromaDBManager:
 
         except Exception as e:
             print(f"AVISO: Erro ao configurar ou limpar a coleção ChromaDB: {e}")
-            if not self.local_embedding_model: # Verifica se o modelo local foi inicializado
+            if not self.local_embedding_model:
                 print("ERRO: Modelo de embedding local não está inicializado, a população do ChromaDB falhará.")
             return 
 
@@ -121,55 +109,66 @@ class ChromaDBManager:
         jogador_posses_data = all_sqlite_data.get('jogador_posses', [])
         tipos_entidades_data = all_sqlite_data.get('tipos_entidades', [])
 
-        tipos_map_locais = {row['id']: row['nome_tipo'] for row in tipos_entidades_data if row['nome_tabela'] == 'locais'}
-        tipos_map_elementos = {row['id']: row['nome_tipo'] for row in tipos_entidades_data if row['nome_tabela'] == 'elementos_universais'}
-        tipos_map_personagens = {row['id']: row['nome_tipo'] for row in tipos_entidades_data if row['nome_tabela'] == 'personagens'}
-        tipos_map_faccoes = {row['id']: row['nome_tipo'] for row in tipos_entidades_data if row['nome_tabela'] == 'faccoes'}
+        # Criar mapas de tipos a partir dos dados fornecidos, usando display_name
+        # Note que a chave é o 'id' numérico da tabela tipos_entidades
+        tipos_map_locais = {row['id']: row['display_name'] for row in tipos_entidades_data if row['nome_tabela'] == 'locais'}
+        tipos_map_elementos = {row['id']: row['display_name'] for row in tipos_entidades_data if row['nome_tabela'] == 'elementos_universais'}
+        tipos_map_personagens = {row['id']: row['display_name'] for row in tipos_entidades_data if row['nome_tabela'] == 'personagens'}
+        tipos_map_faccoes = {row['id']: row['display_name'] for row in tipos_entidades_data if row['nome_tabela'] == 'faccoes'}
 
+        # Processar Locais
         for row in locais_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            tipo_nome = tipos_map_locais.get(row['tipo_id'], 'Desconhecido')
+            # Usa o display_name para o tipo
+            tipo_display_name = tipos_map_locais.get(row['tipo_id'], 'Desconhecido') 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Local: {nome}. Tipo: {tipo_nome}. Descrição: {perfil_json.get('descricao', 'N/A')}. Propriedades: {json.dumps(perfil_json, ensure_ascii=False)}"
+            text_content = f"Local: {nome}. Tipo: {tipo_display_name}. Descrição: {perfil_json.get('descricao', 'N/A')}. Propriedades: {json.dumps(perfil_json, ensure_ascii=False)}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "local", "nome": nome, "subtipo": tipo_nome})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "local", "nome": nome, "subtipo": tipo_display_name})
             all_ids.append(f"local_{id_canonico}")
 
+        # Processar Elementos Universais
         for row in elementos_universais_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            tipo_nome = tipos_map_elementos.get(row['tipo_id'], 'Desconhecido')
+            # Usa o display_name para o tipo
+            tipo_display_name = tipos_map_elementos.get(row['tipo_id'], 'Desconhecido') 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Elemento Universal ({tipo_nome}): {nome}. Detalhes: {json.dumps(perfil_json, ensure_ascii=False)}"
+            text_content = f"Elemento Universal ({tipo_display_name}): {nome}. Detalhes: {json.dumps(perfil_json, ensure_ascii=False)}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "elemento_universal", "nome": nome, "subtipo": tipo_nome})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "elemento_universal", "nome": nome, "subtipo": tipo_display_name})
             all_ids.append(f"elemento_{id_canonico}")
 
+        # Processar Personagens
         for row in personagens_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            tipo_nome = tipos_map_personagens.get(row['tipo_id'], 'Desconhecido')
+            # Usa o display_name para o tipo
+            tipo_display_name = tipos_map_personagens.get(row['tipo_id'], 'Desconhecido') 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Personagem ({tipo_nome}): {nome}. Descrição: {perfil_json.get('personalidade', 'N/A')}. Histórico: {perfil_json.get('historico', 'N/A')}"
+            text_content = f"Personagem ({tipo_display_name}): {nome}. Descrição: {perfil_json.get('personalidade', 'N/A')}. Histórico: {perfil_json.get('historico', 'N/A')}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "personagem", "nome": nome, "subtipo": tipo_nome})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "personagem", "nome": nome, "subtipo": tipo_display_name})
             all_ids.append(f"personagem_{id_canonico}")
 
+        # Processar Facções
         for row in faccoes_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            tipo_nome = tipos_map_faccoes.get(row['tipo_id'], 'Desconhecido')
+            # Usa o display_name para o tipo
+            tipo_display_name = tipos_map_faccoes.get(row['tipo_id'], 'Desconhecido') 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Facção ({tipo_nome}): {nome}. Ideologia: {perfil_json.get('ideologia', 'N/A')}. Influência: {perfil_json.get('influencia', 'N/A')}"
+            text_content = f"Facção ({tipo_display_name}): {nome}. Ideologia: {perfil_json.get('ideologia', 'N/A')}. Influência: {perfil_json.get('influencia', 'N/A')}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "faccao", "nome": nome, "subtipo": tipo_nome})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "faccao", "nome": nome, "subtipo": tipo_display_name})
             all_ids.append(f"faccao_{id_canonico}")
 
+        # Processar Jogador
         for row in jogador_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
@@ -180,7 +179,8 @@ class ChromaDBManager:
             all_metadatas.append({"id_canonico": id_canonico, "tipo": "jogador", "nome": nome})
             all_ids.append(f"jogador_{id_canonico}")
 
-        jogador_data_map = {j['id']: j['id_canonico'] for j in jogador_data}
+        # Processar Posses do Jogador
+        jogador_data_map = {j['id']: j['id_canonico'] for j in jogador_data} # Mapa de ID interno para ID canônico
 
         for row in jogador_posses_data:
             posse_id_canonico = row['id_canonico'] 
@@ -210,7 +210,6 @@ class ChromaDBManager:
                     if embed:
                         embeddings_batch.append(embed)
                     else:
-                        # Usar a dimensão inferida do modelo local ou um fallback seguro
                         embeddings_batch.append([0.0] * self.embedding_dimension) 
 
                 if embeddings_batch and len(embeddings_batch) == len(ids_batch): 
@@ -296,19 +295,21 @@ async def main_test():
     chroma_manager = ChromaDBManager()
 
     print("\nIniciando população da coleção ChromaDB a partir do SQLite (para teste direto)...")
+    # Para este teste, vamos simular alguns dados para build_collection_from_data
+    # Em um cenário real, você chamaria DataManager().get_all_entities_from_table()
     mock_sqlite_data = {
         'locais': [{
             'id': 1,
             'id_canonico': 'estacao_base_alfa',
             'nome': 'Estação Base Alfa',
-            'tipo_id': 3,
+            'tipo_id': 3, # Supondo que 3 é o ID para 'estacao_espacial' em tipos_entidades
             'parent_id': None,
             'perfil_json': '{"funcao": "Hub de pesquisa e comércio.", "populacao": 500, "descricao": "Uma estação espacial movimentada."}'
         }],
         'tipos_entidades': [
-            {'id': 1, 'nome_tabela': 'locais', 'nome_tipo': 'Planeta'},
-            {'id': 2, 'nome_tabela': 'locais', 'nome_tipo': 'Cidade'},
-            {'id': 3, 'nome_tabela': 'locais', 'nome_tipo': 'Estação Espacial'},
+            {'id': 1, 'nome_tabela': 'locais', 'nome_tipo': 'espacial', 'display_name': 'Espacial', 'parent_tipo_id': None},
+            {'id': 2, 'nome_tabela': 'locais', 'nome_tipo': 'construcao', 'display_name': 'Construção', 'parent_tipo_id': None},
+            {'id': 3, 'nome_tabela': 'locais', 'nome_tipo': 'estacao_espacial', 'display_name': 'Estação Espacial', 'parent_tipo_id': 1}, # Exemplo de tipo com pai
         ],
         'jogador': [{
             'id': 1,

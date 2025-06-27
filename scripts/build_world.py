@@ -2,14 +2,16 @@ import sqlite3
 import os
 import sys
 
-# Adiciona o diretório da raiz do projeto ao sys.path para que o módulo config possa ser importado
-# Assumindo que o script build_world.py está em meu_rpg_llm/scripts/
-# E o config.py está em meu_rpg_llm/config/
+# Adiciona o diretório da raiz do projeto ao sys.path para que o módulo config e data possam ser importados
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
+sys.path.append(os.path.join(PROJECT_ROOT, 'data')) # Adiciona o diretório 'data' ao sys.path
 
-# NOVO: Importar as configurações globais
+# Importar as configurações globais
 import config as config 
+
+# NOVO: Importar os tipos genéricos e a função to_snake_case do novo módulo (CORRIGIDO O CAMINHO)
+from data.entity_types_data import GENERIC_ENTITY_TYPES, to_snake_case
 
 def create_meta_tables(cursor):
     """Cria as tabelas de lookup para os tipos de entidades."""
@@ -17,9 +19,12 @@ def create_meta_tables(cursor):
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS tipos_entidades (
             id INTEGER PRIMARY KEY,
-            nome_tabela TEXT NOT NULL, -- Ex: 'locais', 'faccoes'
-            nome_tipo TEXT NOT NULL,   -- Ex: 'Planeta', 'Reino'
-            UNIQUE(nome_tabela, nome_tipo)
+            nome_tabela TEXT NOT NULL,    -- Ex: 'locais', 'faccoes'
+            nome_tipo TEXT NOT NULL,      -- ID interno do tipo (snake_case, ex: 'planeta_aquatico')
+            display_name TEXT NOT NULL,   -- Nome legível para exibição (ex: 'Planeta Aquático')
+            parent_tipo_id INTEGER,       -- Para tipos hierárquicos (ex: 'planeta_aquatico' tem 'planeta' como pai)
+            UNIQUE(nome_tabela, nome_tipo), -- Unicidade no ID interno
+            FOREIGN KEY (parent_tipo_id) REFERENCES tipos_entidades(id)
         );
     """)
 
@@ -39,7 +44,7 @@ def create_core_tables(cursor):
         );
 
         CREATE TABLE IF NOT EXISTS elementos_universais (
-            id INTEGER PRIMARY KEY,
+            id INTEGER INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
             tipo_id INTEGER,
@@ -192,62 +197,65 @@ def create_indexes(cursor):
         CREATE INDEX IF NOT EXISTS idx_relacoes_entidades_tipo_relacao ON relacoes_entidades(tipo_relacao);
     """)
 
-def populate_meta_tables(cursor):
-    """Popula as tabelas de tipos com valores iniciais."""
-    print("Populando metatables com tipos iniciais...")
-    tipos = {
-        'locais': ["Planeta", "Cidade", "Estação Espacial", "Caverna", "Masmorra", "Sala", "Braço Espiral", "Região Galáctica", "Setor Estelar", "Sistema Estelar"],
-        'elementos_universais': ["Tecnologia", "Magia", "Recurso", "Poder", "Fenomeno", "Item_Especial"],
-        'personagens': ["Jogador", "NPC", "Monstro", "Entidade"],
-        'faccoes': ["Reino", "Império", "Corporação", "Guilda", "Tribo", "Aliança", "Culto"]
-    }
-    
-    for nome_tabela, lista_tipos in tipos.items():
-        for nome_tipo in lista_tipos:
-            cursor.execute(
-                "INSERT OR IGNORE INTO tipos_entidades (nome_tabela, nome_tipo) VALUES (?, ?)", # Usar INSERT OR IGNORE para idempotência
-                (nome_tabela, nome_tipo)
-            )
+# A função _to_snake_case foi movida para data/entity_types_data.py
+# e será importada de lá.
+# def _to_snake_case(text): ...
 
+def populate_meta_tables(cursor):
+    """
+    Popula as tabelas de tipos com valores iniciais GENÉRICOS e abrangentes,
+    agora importados de data/entity_types_data.py.
+    """
+    print("Populando metatables com tipos iniciais GENÉRICOS (snake_case e display_name)...")
+    
+    generic_type_ids = {}
+
+    for nome_tabela, lista_display_names in GENERIC_ENTITY_TYPES.items():
+        for display_name in lista_display_names:
+            nome_tipo_snake_case = to_snake_case(display_name)
+            cursor.execute(
+                "INSERT OR IGNORE INTO tipos_entidades (nome_tabela, nome_tipo, display_name, parent_tipo_id) VALUES (?, ?, ?, ?)",
+                (nome_tabela, nome_tipo_snake_case, display_name, None)
+            )
+            cursor.execute("SELECT id FROM tipos_entidades WHERE nome_tabela = ? AND nome_tipo = ?", (nome_tabela, nome_tipo_snake_case))
+            generic_type_ids[(nome_tabela, nome_tipo_snake_case)] = cursor.fetchone()['id']
+    
 def setup_database(cursor):
     """
-    Cria a estrutura completa e vazia da base de dados (v9.4).
-    Versão: 9.4 - Usa configurações de config.py e ajustado para a árvore de ficheiros.
+    Cria a estrutura completa e vazia da base de dados (v9.9).
+    Versão: 9.9 - Tipos de entidades populados de data/entity_types_data.py.
     """
-    print("--- Configurando a Base de Dados (v9.4) ---")
+    print("--- Configurando a Base de Dados (v9.9) ---")
     create_meta_tables(cursor)
     create_core_tables(cursor)
     create_player_tables(cursor)
     create_relationship_tables(cursor)
     create_indexes(cursor)
     populate_meta_tables(cursor)
-    print("SUCESSO: Base de dados v9.4 configurada com tabelas vazias e tipos preenchidos.")
+    print("SUCESSO: Base de dados v9.9 configurada com tabelas vazias e tipos genéricos preenchidos.")
 
 def main():
     """
     Função principal que orquestra a criação do esquema do banco de dados.
+    Cria o DB se não existe, ou garante que o esquema esteja atualizado se existe.
     """
-    # Usa config.PROD_DATA_DIR e config.DB_PATH_SQLITE
     os.makedirs(config.PROD_DATA_DIR, exist_ok=True) 
-    if os.path.exists(config.DB_PATH_SQLITE): 
-        os.remove(config.DB_PATH_SQLITE) # Remove o DB existente para garantir um build limpo
-        print(f"INFO: Arquivo de banco de dados existente '{config.DB_PATH_SQLITE}' removido.")
-        
-    conn = sqlite3.connect(config.DB_PATH_SQLITE) # Usa config.DB_PATH_SQLITE
+    
+    conn = sqlite3.connect(config.DB_PATH_SQLITE)
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
     
     try:
         setup_database(cursor)
         conn.commit()
-        print(f"\n--- Estrutura do Mundo (v9.4) Criada com Sucesso ---")
-        print(f"O arquivo '{config.DB_PATH_SQLITE}' foi criado e está pronto para uso.")
+        print(f"\n--- Estrutura do Mundo (v9.9) Verificada/Criada com Sucesso ---")
+        print(f"O arquivo '{config.DB_PATH_SQLITE}' está pronto para uso e seus dados serão persistidos.")
         
     except Exception as e:
         conn.rollback()
         import traceback
         traceback.print_exc()
-        print(f"\nERRO: A criação da estrutura do mundo falhou. Erro: {e}")
+        print(f"\nERRO: A verificação/criação da estrutura do mundo falhou. Erro: {e}")
     finally:
         conn.close()
 
