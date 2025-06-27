@@ -29,17 +29,16 @@ from entity_types_data import to_snake_case
 
 class AgenteMJ:
     """
-    O cérebro do Mestre de Jogo (v2.24).
+    O cérebro do Mestre de Jogo (v2.27).
     Responsável por gerir o estado do jogo e interagir com o LLM.
     AGORA ATUA COMO ORQUESTRADOR DIRETO DAS ATUALIZAÇÕES DOS PILARES (SQLite + ChromaDB + Neo4j) EM TEMPO REAL.
-    (Change: sys.path configurado no início do main.py para resolver importações.
-             Versão: 2.24)
+    (Change: Instruções de criação inicial do mundo no prompt tornadas um checklist condicional para o LLM, versão: 2.27)
     """
     def __init__(self):
         """
         Inicializa o AgenteMJ e as conexões com os gestores dos pilares.
         """
-        print("--- Agente Mestre de Jogo (MJ) v2.24 a iniciar... ---")
+        print("--- Agente Mestre de Jogo (MJ) v2.27 a iniciar... ---")
         try:
             self.data_manager = DataManager() 
             self.chroma_manager = ChromaDBManager()
@@ -170,11 +169,7 @@ class AgenteMJ:
         - Descrições Opcionais: Descrições de ambientes são omitidas, a menos que solicitadas.
         - Progresso Implícito: O progresso em habilidades é comunicado de maneira narrativa, não de forma técnica.
         - Imersão Total: O jogador vivencia o mundo através dos sentidos e limitações do personagem.
-        - **Criação Dinâmica de Tipos**: Ao criar uma nova entidade (Local, Elemento Universal, Personagem, Facção) com um tipo que não seja um dos tipos base genéricos (presentes na `tipos_entidades`), você DEVE primeiro chamar a função `add_new_entity_type`.
-            - Forneça o `nome_tabela` (ex: 'locais'), o `nome_tipo_display` (ex: 'Planeta Aquático') e, **se aplicável**, o `parent_tipo_display` (ex: 'Planeta').
-            - O `parent_tipo_display` DEVE ser um tipo genérico já existente (ex: 'Espacial', 'Construção', 'Natural', etc.) ou um tipo mais específico que você tenha criado anteriormente e que seja pai lógico do novo tipo.
-            - Se a função `add_new_entity_type` retornar `None` (indicando falha na criação do tipo por validação ou redundância), você DEVE tentar novamente com uma proposta de tipo diferente e mais adequada, ou usar um tipo genérico existente.
-        - **Criação Inicial do Mundo**: Se o jogador não existir, você DEVE iniciar a aventura criando o jogador e seu local inicial. Você tem TOTAL LIBERDADE CRIATIVA para definir o nome do jogador, suas características, o tipo de ambiente inicial (pode ser um tipo específico que você cria via `add_new_entity_type` ou um tipo base) e o nome desse local. Crie IDs canônicos únicos (ex: 'pj_nome_inventado', 'local_planeta_verde'). Não há restrições de cenário; crie o que você sentir ser mais interessante para o início da história.
+        - **APÓS CADA CHAMADA DE FUNÇÃO BEM-SUCEDIDA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA** descrevendo o que aconteceu ou o que o jogador percebeu como resultado da ação. Isso é CRÍTICO para a fluidez do jogo. Se o LLM não gerar uma narrativa, o jogo parecerá estático.
         """
 
         jogador_base = contexto['jogador']['base']
@@ -210,33 +205,69 @@ class AgenteMJ:
 
         # Adicionar instrução para o LLM criar o jogador se o ID canônico for o placeholder
         player_creation_instruction = ""
+        
+        # Obter os tipos necessários para a criação do jogador e do local inicial
+        player_type_id = self.data_manager._get_type_id('personagens', to_snake_case('Humano Simbionte'))
+        location_type_id = self.data_manager._get_type_id('locais', to_snake_case('Base de Pesquisa Submersa'))
+        initial_location_details = self.data_manager.get_entity_details_by_canonical_id('locais', 'ruinas_elysium_submersa')
+        
+        # =========================================================================================
+        # INSTRUÇÃO CRÍTICA PARA CRIAÇÃO DO MUNDO: CHECKLIST CONDICIONAL PARA O LLM
+        # =========================================================================================
         if jogador_base['nome'] == 'Aguardando Criação':
-            player_creation_instruction = f"""
-# INSTRUÇÃO CRÍTICA PARA CRIAÇÃO DO MUNDO (Se o Jogador não existir):
-O jogo está começando do zero. Seu objetivo é estabelecer o ponto de partida da aventura.
-Você DEVE realizar as seguintes ações, usando as funções do DataManager (via Function Calling):
-1. **(Passo 1.1: Opcional, mas recomendado para tipos específicos)** Se o tipo de local que você deseja criar (ex: 'Planeta Aquático', 'Estação Abandonada') não for um dos tipos base genéricos já existentes (ex: 'Espacial', 'Construção', 'Natural', etc.), **primeiro chame `add_new_entity_type`**.
-    * `nome_tabela`: 'locais'
-    * `nome_tipo_display`: O nome legível do tipo específico (ex: 'Planeta Aquático').
-    * `parent_tipo_display`: O nome legível do tipo genérico pai (ex: 'Planeta' ou um dos tipos base como 'Natural', 'Espacial').
-    * Aguarde a resposta da função. Se for bem-sucedida, prossiga.
-2. Crie um local inicial (add_or_get_location).
-    * `id_canonico`: Crie um ID único (ex: 'local_planeta_aurelia').
-    * `nome`: Dê um nome legível (ex: 'Aurelia').
-    * `tipo_display_name`: O nome legível do tipo que você acabou de criar ou um dos tipos genéricos base (ex: 'Planeta Aquático' ou 'Planeta').
-    * `perfil_json_data`: Uma descrição rica em JSON (ex: '{{\"descricao\": \"Um mundo coberto por oceanos cintilantes, com ruínas submersas e flora bioluminescente.\", \"clima\": \"temperado\", \"gravidade\": \"padrão\"}}').
-    * `parent_id_canonico`: (Opcional) Se for parte de uma hierarquia maior (ex: dentro de um setor estelar), use o ID canônico do pai.
-3. **(Passo 2.1: Opcional, mas recomendado para tipos específicos)** Similarmente, se o tipo de personagem (ex: 'Humano Simbionte', 'Androide Explorador') não for um dos tipos base genéricos (ex: 'Ser', 'Autômato'), **primeiro chame `add_new_entity_type`**.
-    * `nome_tabela`: 'personagens'
-    * `nome_tipo_display`: O nome legível do tipo específico (ex: 'Humano Simbionte').
-    * `parent_tipo_display`: O nome legível do tipo genérico pai (ex: 'Humano' ou um dos tipos base como 'Ser').
-    * Aguarde a resposta da função. Se for bem-sucedida, prossiga.
-4. Crie o personagem do jogador (add_or_get_player) com o `id_canonico` '{config.DEFAULT_PLAYER_ID_CANONICO}'.
-    * `nome`: Dê um nome ao jogador (ex: 'Elara', 'Kael').
-    * `local_inicial_id_canonico`: O ID canônico do local que você criou no passo 2.
-    * `perfil_completo_data`: Detalhes em JSON (ex: '{{\"raca\": \"Humano Simbionte\", \"ocupacao\": \"Cientista Exilada\", \"personalidade\": \"Curiosa e cautelosa\"}}').
-Após a criação, inicie a narrativa descrevendo o ambiente e o que o jogador (com o nome que você definiu para o personagem com ID '{config.DEFAULT_PLAYER_ID_CANONICO}') percebe.
+            player_creation_instruction += """
+# INSTRUÇÃO CRÍTICA PARA CRIAÇÃO DO MUNDO (Prioridade Máxima):
+O jogo está começando do zero. Seu objetivo é estabelecer o ponto de partida da aventura, criando o Jogador e sua localização inicial de forma canônica no sistema. Siga esta sequência de passos **rigorosamente**.
 """
+            # PASSO 1: CRIAR O TIPO DE PERSONAGEM (SE NECESSÁRIO)
+            if player_type_id is None:
+                player_creation_instruction += f"""
+**Passo 1.1: Criar o tipo de Personagem 'Humano Simbionte'**
+Chame `add_new_entity_type`.
+* `nome_tabela`: 'personagens'
+* `nome_tipo_display`: 'Humano Simbionte'
+* `parent_tipo_display`: 'Ser' (ou 'Humano' se já existir)
+**APÓS ESTA CHAMADA, GERE UMA NARRATIVA CURTA** confirmando que o tipo de personagem foi registrado. Em seguida, o LLM deve proceder para o próximo passo (1.2 ou 2).
+"""
+            # PASSO 2: CRIAR O TIPO DE LOCAL (SE NECESSÁRIO)
+            if location_type_id is None:
+                player_creation_instruction += f"""
+**Passo 1.2: Criar o tipo de Local 'Base de Pesquisa Submersa'**
+Chame `add_new_entity_type`.
+* `nome_tabela`: 'locais'
+* `nome_tipo_display`: 'Base de Pesquisa Submersa'
+* `parent_tipo_display`: 'Construção' (ou 'Espacial' se for o caso)
+**APÓS ESTA CHAMADA, GERE UMA NARRATIVA CURTA** confirmando que o tipo de local foi registrado. Em seguida, o LLM deve proceder para o próximo passo (2 ou 3).
+"""
+            # PASSO 3: CRIAR O LOCAL INICIAL (SE NECESSÁRIO)
+            if not initial_location_details:
+                player_creation_instruction += f"""
+**Passo 2: Criar o Local Inicial do Jogador: 'Ruínas de Elysium'**
+O local inicial do jogador DEVE ter o `id_canonico` 'ruinas_elysium_submersa'. Chame `add_or_get_location`.
+* `id_canonico`: 'ruinas_elysium_submersa'
+* `nome`: 'Ruínas de Elysium'
+* `tipo_display_name`: 'Base de Pesquisa Submersa' (o tipo que você acabou de criar ou confirmou que existe).
+* `perfil_json_data`: '{{\"descricao\": \"Uma base de pesquisa dilapidada, outrora um farol de inovação, agora silenciosa e envolta pelas profundezas oceânicas.\", \"ambiente\": \"Subaquático, Profundezas Abissais\", \"status\": \"Abandonada, Danificada\"}}'
+* `parent_id_canonico`: (Opcional) 'setor_oceano_profundo'
+**APÓS ESTA CHAMADA, GERE UMA NARRATIVA CURTA** descrevendo a criação ou identificação deste local. Em seguida, o LLM deve proceder para o próximo passo (3).
+"""
+            # PASSO 4: CRIAR O PERSONAGEM DO JOGADOR
+            # Esta instrução só aparece se o local inicial já existir (seja recém-criado ou já existia)
+            if initial_location_details and jogador_base['nome'] == 'Aguardando Criação':
+                player_creation_instruction += f"""
+**Passo 3: Criar o Personagem do Jogador: 'Gabriel Oliveira'**
+Crie o personagem do jogador com o `id_canonico` '{config.DEFAULT_PLAYER_ID_CANONICO}'. Chame `add_or_get_player`.
+* `id_canonico`: '{config.DEFAULT_PLAYER_ID_CANONICO}'
+* `nome`: 'Gabriel Oliveira'
+* `local_inicial_id_canonico`: 'ruinas_elysium_submersa' (o ID do local que você acabou de criar ou confirmou que existe).
+* `perfil_completo_data`: '{{\"raca\": \"Humano Simbionte\", \"ocupacao\": \"Explorador\", \"personalidade\": \"Curioso e cauteloso\", \"historia\": \"Consumido por um simbionte tecnológico, ele acorda em um mundo novo, sentindo a conexão com tudo ao seu redor.\"}}'
+**APÓS ESTA CHAMADA, GERE UMA NARRATIVA CONCISA E ENVOLVENTE** sobre o despertar de Gabriel nas Ruínas de Elysium, integrando a ação inicial do jogador. Esta narrativa marca a **conclusão da fase de setup inicial**.
+"""
+            player_creation_instruction += """
+**ATENÇÃO:** O LLM deve executar APENAS o PRÓXIMO PASSO lógico desta lista. Não tente pular etapas ou executar funções que já foram realizadas. Se uma função retornar que algo já existe, apenas gere a narrativa confirmando isso e prossiga para o próximo passo na ordem.
+"""
+        # =========================================================================================
+
             
         prompt = f"""
 # ORDENS DO MESTRE
@@ -292,7 +323,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
         chatHistory = [{"role": "user", "parts": [{"text": prompt_formatado}]}]
         payload = {"contents": chatHistory}
         apiKey = config.GEMINI_API_KEY 
-        apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GENERATIVE_MODEL}:generateContent?key={apiKey}";
+        apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GENERATIVE_MODEL}:generateContent?key=${apiKey}";
         
         # Obter a lista atual de tipos genéricos do DataManager para usar em enums nas tools.
         # Isso ajuda o LLM a saber quais tipos base ele pode usar como 'parent_tipo_display'.
@@ -309,7 +340,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
             {"functionDeclarations": [
                 {
                     "name": "add_new_entity_type",
-                    "description": "Adiciona um novo tipo de entidade ao sistema (para 'locais', 'elementos_universais', 'personagens', 'faccoes'). Use quando precisar de um tipo mais específico que não seja um dos tipos base genéricos. Retorna o nome_tipo (snake_case) do tipo adicionado/existente, ou None em caso de falha.",
+                    "description": "Adiciona um novo tipo de entidade ao sistema (para 'locais', 'elementos_universais', 'personagens', 'faccoes'). Use quando precisar de um tipo mais específico que não seja um dos tipos base genéricos. Retorna o nome_tipo (snake_case) do tipo adicionado/existente, ou None em caso de falha. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -322,7 +353,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_or_get_location",
-                    "description": "Adiciona um novo local ao universo ou retorna o ID se já existe. Use para criar planetas, estações, salas, etc.",
+                    "description": "Adiciona um novo local ao universo ou retorna o ID se já existe. Use para criar planetas, estações, salas, etc. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -337,7 +368,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_or_get_player",
-                    "description": "Adiciona um novo jogador ao banco de dados ou retorna o ID se já existe. Use para criar o personagem principal.",
+                    "description": "Adiciona um novo jogador ao banco de dados ou retorna o ID se já existe. Use para criar o personagem principal. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -351,7 +382,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_player_vitals",
-                    "description": "Adiciona ou atualiza o status físico e emocional do jogador.",
+                    "description": "Adiciona ou atualiza o status físico e emocional do jogador. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -368,7 +399,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_player_skill",
-                    "description": "Adiciona uma nova habilidade ao jogador. Já é idempotente.",
+                    "description": "Adiciona uma nova habilidade ao jogador. Já é idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -383,7 +414,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_player_knowledge",
-                    "description": "Adiciona um novo conhecimento ao jogador. Já é idempotente.",
+                    "description": "Adiciona um novo conhecimento ao jogador. Já é idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -398,7 +429,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_or_get_player_possession",
-                    "description": "Adiciona uma nova posse ao jogador ou retorna o ID se já existe. Use para itens do inventário.",
+                    "description": "Adiciona uma nova posse ao jogador ou retorna o ID se já existe. Use para itens do inventário. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -412,7 +443,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_log_memory",
-                    "description": "Adiciona um log ou memória consolidada para o jogador.",
+                    "description": "Adiciona um log ou memória consolidada para o jogador. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -426,7 +457,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "update_player_location",
-                    "description": "Atualiza a localização atual do jogador no DB.",
+                    "description": "Atualiza a localização atual do jogador no DB. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -438,7 +469,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_direct_access_relation",
-                    "description": "Adiciona uma relação de acesso direto entre dois locais. Já é idempotente.",
+                    "description": "Adiciona uma relação de acesso direto entre dois locais. Já é idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -452,7 +483,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_universal_relation",
-                    "description": "Adiciona uma relação universal entre quaisquer duas entidades. Já é idempotente.",
+                    "description": "Adiciona uma relação universal entre quaisquer duas entidades. Já é idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -468,7 +499,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_column_to_table",
-                    "description": "Adiciona uma nova coluna a uma tabela existente. Idempotente.",
+                    "description": "Adiciona uma nova coluna a uma tabela existente. Idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -482,7 +513,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_or_get_element_universal",
-                    "description": "Adiciona um novo elemento universal (tecnologia, magia, recurso) ou retorna o ID se já existe.",
+                    "description": "Adiciona um novo elemento universal (tecnologia, magia, recurso) ou retorna o ID se já existe. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -496,7 +527,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_or_get_personagem",
-                    "description": "Adiciona um novo personagem (NPC, monstro) ou retorna o ID se já existe.",
+                    "description": "Adiciona um novo personagem (NPC, monstro) ou retorna o ID se já existe. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -510,7 +541,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_or_get_faccao",
-                    "description": "Adiciona uma nova facção (reino, corporação) ou retorna o ID se já existe.",
+                    "description": "Adiciona uma nova facção (reino, corporação) ou retorna o ID se já existe. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -588,10 +619,10 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                         
                                         print(f"Resposta da função DataManager '{function_name}': {function_response}")
                                         
-                                        if function_response:
+                                        if function_response is not None: # Verifica se a resposta não é None (indicando falha explícita)
                                             if function_name == "add_new_entity_type":
-                                                # Se add_new_entity_type retornou um nome_tipo (snake_case), adicione aos logs.
-                                                # Não atualizamos Chroma/Neo4j aqui diretamente, pois é apenas um tipo.
+                                                # Para add_new_entity_type, a atualização no Chroma/Neo4j não é direta.
+                                                # O retorno é o nome_tipo_snake_case, que é um sucesso.
                                                 pass 
                                             else: 
                                                 table_name_map = {
@@ -626,7 +657,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                                             metadata_for_chroma["nome"] = entity_details.get('nome')
                                                         elif table_name == "jogador_posses":
                                                             profile_data = json.loads(entity_details.get('perfil_json', '{}'))
-                                                            text_content_for_chroma = f"Posse: {entity_details.get('item_nome')} (ID: {id_canonico_to_sync}) de {processed_args.get('jogador_id_canonico')}. Detalhes: {profile_data}."
+                                                            text_content_for_chroma = f"Posse: {entity_details.get('item_nome')} (ID: {processed_args.get('posse_id_canonico')}) de {processed_args.get('jogador_id_canonico')}. Detalhes: {profile_data}."
                                                             metadata_for_chroma["nome"] = entity_details.get('item_nome')
                                                             metadata_for_chroma["jogador"] = processed_args.get('jogador_id_canonico')
                                                         elif table_name == "elementos_universais":
@@ -678,7 +709,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                                     specific_label = entity_details.get('tipo_display_name') # Usar display_name para o rótulo específico no Neo4j
                                                     
                                                     self.neo4j_manager.add_or_update_node(
-                                                        id_canonico=entity_details['id_canonico'],
+                                                        id_canonico=node_properties['id_canonico'],
                                                         label_base=base_label,
                                                         properties=node_properties,
                                                         main_label=specific_label 
@@ -737,8 +768,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                                         print(f"INFO: Relação universal '{processed_args['tipo_relacao']}' atualizada no Neo4j.")
 
                                                 else:
-                                                    print(f"AVISO: Dados insuficientes para atualizar Neo4j após função '{function_name}'.")
-                                            print(f"AVISO: Função DataManager '{function_name}' não retornou sucesso. Neo4j não atualizado.")
+                                                    pass # Para add_new_entity_type, não há necessidade de atualização direta no Chroma/Neo4j aqui.
 
                                         tool_responses_parts.append({
                                             "functionResponse": {
@@ -758,18 +788,54 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                 if response_after_tools.status == 200:
                                     final_result = await response_after_tools.json()
                                     if final_result.get("candidates"):
-                                        final_text = final_result["candidates"][0]["content"]["parts"][0]["text"]
-                                        return final_text.strip()
+                                        # Iterar sobre as partes para encontrar o texto narrativo
+                                        final_text_content = ""
+                                        for part in final_result["candidates"][0]["content"]["parts"]:
+                                            if "text" in part:
+                                                final_text_content += part["text"] + "\n" # Concatena todas as partes de texto
+                                            elif "functionCall" in part:
+                                                # Se houver outra chamada de função, o LLM a enviou em vez de narrativa.
+                                                # Neste caso, vamos retornar uma mensagem padrão para não quebrar o loop.
+                                                print(f"AVISO: LLM encadeou outra função após a primeira rodada de ferramentas: {part['functionCall']['name']}")
+                                                return "O Mestre de Jogo está processando informações e preparando a próxima etapa. Por favor, aguarde ou digite 'continue'."
+
+                                        if final_text_content.strip():
+                                            return final_text_content.strip()
+                                        else:
+                                            print(f"AVISO: Resposta final do LLM sem texto narrativo após ferramentas. Conteúdo: {final_result['candidates'][0]['content']['parts']}")
+                                            # Se não houver texto narrativo, mas a chamada de função for bem-sucedida,
+                                            # o LLM provavelmente está esperando por mais ações ou uma instrução.
+                                            # Retorne uma mensagem que indica progressão e pede a próxima ação.
+                                            return "O Mestre de Jogo registrou sua ação e as informações do mundo. Qual é o próximo passo de Gabriel?"
                                     else:
-                                        print(f"AVISO: Resposta final do LLM inválida após ferramentas. {await response.text()}")
+                                        print(f"AVISO: Resposta final do LLM inválida após ferramentas (sem 'candidates'). {await response_after_tools.text()}")
                                         return "O Mestre parece estar em silêncio após uma ação importante..."
                                 else:
                                     response_text_after_tools = await response_after_tools.text()
                                     print(f"ERRO: Falha na API do LLM após ferramentas com status {response_after_tools.status}: {response_text_after_tools}")
                                     return "Uma interferência cósmica impede a clareza após as ações."
                             
-                            text = parts[0]["text"]
-                            return text.strip()
+                            # Se não houve tool_calls na primeira resposta do LLM, espera-se texto narrativo
+                            text_content = ""
+                            for part in parts:
+                                if "text" in part:
+                                    text_content += part["text"] + "\n"
+                                elif "functionCall" in part:
+                                    # Se a resposta inicial já é uma tool call
+                                    print(f"AVISO: LLM iniciou com uma chamada de função: {part['functionCall']['name']}")
+                                    # Se a primeira resposta do LLM já é uma tool call, vamos processá-la e esperar a narrativa subsequente
+                                    # não retornamos aqui, pois queremos que o fluxo continue para processar a tool_call
+                                    # A narrativa virá na próxima rodada após as tool_responses_parts serem enviadas de volta ao LLM.
+                                    pass
+
+
+                            if text_content.strip():
+                                return text_content.strip()
+                            else:
+                                print(f"AVISO: Resposta inicial do LLM sem texto narrativo. Conteúdo: {parts}")
+                                # Se não houver texto, mas também não houver tool_calls (o que seria estranho),
+                                # podemos tentar uma nova rodada ou pedir para o usuário continuar.
+                                return "O Mestre parece estar em silêncio. Por favor, digite 'continue' ou sua próxima ação."
                         else:
                             print(f"AVISO: Resposta do LLM inválida (sem 'content' ou 'parts'). {await response.text()}")
                             return "O Mestre parece estar em silêncio..."

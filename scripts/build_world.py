@@ -11,7 +11,7 @@ sys.path.append(os.path.join(PROJECT_ROOT, 'data')) # Adiciona o diretório 'dat
 import config as config 
 
 # NOVO: Importar os tipos genéricos e a função to_snake_case do novo módulo (CORRIGIDO O CAMINHO)
-from data.entity_types_data import GENERIC_ENTITY_TYPES, to_snake_case
+from entity_types_data import GENERIC_ENTITY_TYPES, to_snake_case
 
 def create_meta_tables(cursor):
     """Cria as tabelas de lookup para os tipos de entidades."""
@@ -217,9 +217,22 @@ def populate_meta_tables(cursor):
                 "INSERT OR IGNORE INTO tipos_entidades (nome_tabela, nome_tipo, display_name, parent_tipo_id) VALUES (?, ?, ?, ?)",
                 (nome_tabela, nome_tipo_snake_case, display_name, None)
             )
+            # Fetch the ID after insertion.
+            # It's important to use the same connection/cursor and ensure the commit or autocommit
+            # behavior is as expected for the row to be visible immediately.
+            # Using SELECT to get ID after INSERT OR IGNORE is a common pattern.
             cursor.execute("SELECT id FROM tipos_entidades WHERE nome_tabela = ? AND nome_tipo = ?", (nome_tabela, nome_tipo_snake_case))
-            generic_type_ids[(nome_tabela, nome_tipo_snake_case)] = cursor.fetchone()['id']
-    
+            
+            # This line will now work correctly because conn.row_factory is set in main()
+            # It's still good practice to check if result is None, though in this case
+            # after INSERT OR IGNORE, it should usually find a row (either new or existing).
+            result = cursor.fetchone()
+            if result: # Adicionei essa verificação para maior robustez
+                generic_type_ids[(nome_tabela, nome_tipo_snake_case)] = result['id']
+            else:
+                print(f"AVISO: Não foi possível recuperar ID para o tipo '{display_name}' ({nome_tipo_snake_case}) na tabela '{nome_tabela}'. Pode já existir e não ter sido encontrado.")
+
+
 def setup_database(cursor):
     """
     Cria a estrutura completa e vazia da base de dados (v9.9).
@@ -242,6 +255,8 @@ def main():
     os.makedirs(config.PROD_DATA_DIR, exist_ok=True) 
     
     conn = sqlite3.connect(config.DB_PATH_SQLITE)
+    # FIX PRINCIPAL: Configure a row_factory para que o cursor retorne objetos sqlite3.Row
+    conn.row_factory = sqlite3.Row 
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
     
@@ -261,3 +276,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
