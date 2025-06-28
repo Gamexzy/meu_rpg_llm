@@ -10,17 +10,23 @@ sys.path.append(os.path.join(PROJECT_ROOT, 'data')) # Adiciona o diretório 'dat
 # Importa as configurações globais
 import config as config 
 # Importa os tipos de entidades genéricos
-import entity_types_data as entity_types_data
+import entity_types_data as entity_types_data # type: ignore
 
 def create_meta_tables(cursor):
-    """Cria as tabelas de lookup para os tipos de entidades."""
+    """
+    Cria as tabelas de lookup para os tipos de entidades.
+    Adicionado: display_name para nomes amigáveis e parent_tipo_id para hierarquia.
+    """
     print("Criando metatables para tipos...")
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS tipos_entidades (
             id INTEGER PRIMARY KEY,
-            nome_tabela TEXT NOT NULL, -- Ex: 'locais', 'faccoes'
-            nome_tipo TEXT NOT NULL,   -- Ex: 'Planeta', 'Reino'
-            UNIQUE(nome_tabela, nome_tipo)
+            nome_tabela TEXT NOT NULL,   -- Ex: 'locais', 'faccoes'
+            nome_tipo TEXT NOT NULL,     -- Ex: 'planeta', 'reino' (em snake_case)
+            display_name TEXT NOT NULL,  -- Ex: 'Planeta', 'Reino' (nome legível)
+            parent_tipo_id INTEGER,      -- ID do tipo pai para hierarquia
+            UNIQUE(nome_tabela, nome_tipo),
+            FOREIGN KEY (parent_tipo_id) REFERENCES tipos_entidades(id) ON DELETE RESTRICT
         );
     """)
 
@@ -197,29 +203,32 @@ def populate_meta_tables(cursor):
     """
     Popula as tabelas de tipos com os valores genéricos definidos em entity_types_data.py.
     Esses tipos servem como base para a IA gerar variações.
+    Agora insere 'display_name' (capitalizado) e 'parent_tipo_id' (NULL para os genéricos).
     """
     print("Populando metatables com tipos iniciais genéricos do entity_types_data.py...")
     # Usa GENERIC_ENTITY_TYPES do módulo entity_types_data
     for nome_tabela, lista_tipos in entity_types_data.GENERIC_ENTITY_TYPES.items():
-        for nome_tipo in lista_tipos:
+        for nome_tipo_snake_case in lista_tipos:
+            # Capitaliza a primeira letra para o display_name (ex: 'espacial' -> 'Espacial')
+            display_name = nome_tipo_snake_case[0].upper() + nome_tipo_snake_case[1:]
             cursor.execute(
-                "INSERT OR IGNORE INTO tipos_entidades (nome_tabela, nome_tipo) VALUES (?, ?)",
-                (nome_tabela, nome_tipo)
+                "INSERT OR IGNORE INTO tipos_entidades (nome_tabela, nome_tipo, display_name, parent_tipo_id) VALUES (?, ?, ?, ?)",
+                (nome_tabela, nome_tipo_snake_case, display_name, None) # parent_tipo_id é NULL para tipos genéricos
             )
 
 def setup_database(cursor):
     """
-    Cria a estrutura completa e vazia da base de dados (v9.7).
-    Versão: 9.7 - Importação de tipos genéricos do entity_types_data.py.
+    Cria a estrutura completa e vazia da base de dados (v9.8).
+    Versão: 9.8 - Adicionado display_name e parent_tipo_id à tipos_entidades.
     """
-    print("--- Configurando a Base de Dados (v9.7) ---")
+    print("--- Configurando a Base de Dados (v9.8) ---")
     create_meta_tables(cursor)
     create_core_tables(cursor)
     create_player_tables(cursor)
     create_relationship_tables(cursor)
     create_indexes(cursor)
     populate_meta_tables(cursor)
-    print("SUCESSO: Base de dados v9.7 configurada com tabelas vazias e tipos preenchidos.")
+    print("SUCESSO: Base de dados v9.8 configurada com tabelas vazias e tipos preenchidos.")
 
 def main():
     """
@@ -236,7 +245,7 @@ def main():
     try:
         setup_database(cursor)
         conn.commit()
-        print(f"\n--- Estrutura do Mundo (v9.7) Verificada/Criada com Sucesso ---")
+        print(f"\n--- Estrutura do Mundo (v9.8) Verificada/Criada com Sucesso ---")
         print(f"O arquivo '{config.DB_PATH_SQLITE}' está pronto para uso e seus dados serão persistidos.")
         
     except Exception as e:

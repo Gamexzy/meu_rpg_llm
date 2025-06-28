@@ -7,94 +7,95 @@ import aiohttp
 import chromadb
 from chromadb.utils import embedding_functions
 
-# Importar a biblioteca oficial google-generativeai.
+# Import the official google-generativeai library.
 import google.generativeai as genai
 
-# Importar a biblioteca SentenceTransformer para modelos de embedding locais
+# Import the SentenceTransformer library for local embedding models
 from sentence_transformers import SentenceTransformer
 
-# Importar as configurações globais
+# Import global configurations
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config'))
 import config as config
 
 class ChromaDBManager:
     """
-    API dedicada para interagir com o Pilar A (Base de Dados Vetorial - ChromaDB).
-    Responsável por armazenar e buscar embeddings para a lore do jogo.
-    Versão: 1.3.9 - Adaptado para usar display_name na construção de documentos e metadados de embedding.
+    API dedicated to interacting with Pillar A (Vector Database - ChromaDB).
+    Responsible for storing and searching embeddings for game lore.
+    Version: 1.4.0 - Adapted to use display_name in document and embedding metadata construction.
     """
     def __init__(self, chroma_path=config.CHROMA_PATH):
-        """Inicializa o gestor e a conexão com o ChromaDB."""
+        """Initializes the manager and the connection to ChromaDB."""
         self.chroma_client = chromadb.PersistentClient(path=chroma_path)
         
-        # A chave de API será lida automaticamente da variável de ambiente GOOGLE_API_KEY ou GEMINI_API_KEY
-        # pela biblioteca 'google.generativeai'.
+        # The API key will be automatically read from the GOOGLE_API_KEY or GEMINI_API_KEY environment variable
+        # by the 'google.generativeai' library.
         if not config.GEMINI_API_KEY:
-            print("AVISO: GEMINI_API_KEY não definida em config.py ou nas variáveis de ambiente. Chamadas para a API de geração de texto do Gemini podem falhar.")
-            self.genai_initialized = False # Indica que a API remota do Gemini pode não funcionar
+            print("WARNING: GEMINI_API_KEY not defined in config.py or environment variables. Calls to the Gemini text generation API may fail.")
+            self.genai_initialized = False # Indicates that the remote Gemini API may not work
         else:
             self.genai_initialized = True
-            print("INFO: Módulo google.generativeai inicializado (para LLM principal, API Key via variável de ambiente).")
+            print("INFO: google.generativeai module initialized (for main LLM, API Key via environment variable).")
 
 
-        # Carregar um modelo de embedding local.
-        print(f"INFO: Carregando modelo de embedding local: {config.EMBEDDING_MODEL}")
+        # Load a local embedding model.
+        print(f"INFO: Loading local embedding model: {config.EMBEDDING_MODEL}")
         try:
             self.local_embedding_model = SentenceTransformer(config.EMBEDDING_MODEL)
             self.embedding_dimension = self.local_embedding_model.get_sentence_embedding_dimension()
-            print(f"INFO: Modelo de embedding local '{config.EMBEDDING_MODEL}' carregado. Dimensão: {self.embedding_dimension}")
+            print(f"INFO: Local embedding model '{config.EMBEDDING_MODEL}' loaded. Dimension: {self.embedding_dimension}")
         except Exception as e:
-            print(f"ERRO CRÍTICO: Falha ao carregar modelo de embedding local '{config.EMBEDDING_MODEL}': {e}")
+            print(f"CRITICAL ERROR: Failed to load local embedding model '{config.EMBEDDING_MODEL}': {e}")
             self.local_embedding_model = None
-            self.embedding_dimension = 384 # Fallback para uma dimensão comum
+            self.embedding_dimension = 384 # Fallback to a common dimension
             
-        # A coleção será obtida ou criada, e a dimensão será inferida do primeiro embedding adicionado.
+        # The collection will be obtained or created, and the dimension will be inferred from the first added embedding.
         self.collection = self.chroma_client.get_or_create_collection(
             name="rpg_lore_collection"
         )
-        print(f"INFO: ChromaDBManager conectado com sucesso ao Pilar A em: {chroma_path}")
+        print(f"INFO: ChromaDBManager connected successfully to Pillar A at: {chroma_path}")
 
     async def _get_embedding(self, text):
         """
-        Gera um embedding para o texto fornecido usando o modelo de embedding local.
+        Generates an embedding for the provided text using the local embedding model.
         """
         if not text:
             return []
         if not self.local_embedding_model: 
-            print("ERRO: Modelo de embedding local não carregado. Não é possível gerar embeddings.")
+            print("ERROR: Local embedding model not loaded. Cannot generate embeddings.")
             return []
 
         try:
             embedding = self.local_embedding_model.encode(text).tolist()
             return embedding
         except Exception as e:
-            print(f"ERRO ao gerar embedding com modelo local: {e}. Texto: {text[:50]}...")
+            print(f"ERROR generating embedding with local model: {e}. Text: {text[:50]}...")
             return [0.0] * self.embedding_dimension
 
 
     async def build_collection_from_data(self, all_sqlite_data):
         """
-        Lê dados textuais de um dicionário 'all_sqlite_data' (que vem do DataManager),
-        gera embeddings e os popula no ChromaDB. Força a limpeza e reconstrução da coleção.
+        Reads textual data from an 'all_sqlite_data' dictionary (which comes from DataManager),
+        generates embeddings, and populates them in ChromaDB. Forces collection cleanup and reconstruction.
+        Now uses 'display_name' from 'tipos_entidades' for more descriptive embeddings.
         """
-        print("\n--- A construir o Pilar A (ChromaDB) a partir de dados fornecidos ---")
+        print("\n--- Building Pillar A (ChromaDB) from provided data ---")
         
         try:
             try:
                 self.chroma_client.delete_collection(name="rpg_lore_collection")
-                print("INFO: Coleção ChromaDB 'rpg_lore_collection' existente deletada para reconstrução.")
+                print("INFO: Existing ChromaDB collection 'rpg_lore_collection' deleted for reconstruction.")
             except Exception as e:
-                print(f"AVISO: Não foi possível deletar a coleção ChromaDB (pode não existir): {e}")
+                print(f"WARNING: Could not delete ChromaDB collection (may not exist): {e}")
 
             self.collection = self.chroma_client.get_or_create_collection(
                 name="rpg_lore_collection"
             )
-            print("INFO: Coleção ChromaDB 'rpg_lore_collection' pronta para ser populada.")
+            print("INFO: ChromaDB collection 'rpg_lore_collection' ready to be populated.")
 
         except Exception as e:
-            print(f"AVISO: Erro ao configurar ou limpar a coleção ChromaDB: {e}")
+            print(f"WARNING: Error configuring or cleaning ChromaDB collection: {e}")
             if not self.local_embedding_model:
-                print("ERRO: Modelo de embedding local não está inicializado, a população do ChromaDB falhará.")
+                print("ERROR: Local embedding model is not initialized, ChromaDB population will fail.")
             return 
 
         all_documents = []
@@ -109,78 +110,86 @@ class ChromaDBManager:
         jogador_posses_data = all_sqlite_data.get('jogador_posses', [])
         tipos_entidades_data = all_sqlite_data.get('tipos_entidades', [])
 
-        # Criar mapas de tipos a partir dos dados fornecidos, usando display_name
-        # Note que a chave é o 'id' numérico da tabela tipos_entidades
-        tipos_map_locais = {row['id']: row['display_name'] for row in tipos_entidades_data if row['nome_tabela'] == 'locais'}
-        tipos_map_elementos = {row['id']: row['display_name'] for row in tipos_entidades_data if row['nome_tabela'] == 'elementos_universais'}
-        tipos_map_personagens = {row['id']: row['display_name'] for row in tipos_entidades_data if row['nome_tabela'] == 'personagens'}
-        tipos_map_faccoes = {row['id']: row['display_name'] for row in tipos_entidades_data if row['nome_tabela'] == 'faccoes'}
+        # Create type maps from provided data, using display_name
+        # Note that the key is the numeric 'id' of the tipos_entidades table
+        # We also need the nome_tipo (snake_case) for some internal uses or as fallback
+        tipos_map = {}
+        for row in tipos_entidades_data:
+            tipos_map[(row['nome_tabela'], row['id'])] = {
+                'nome_tipo': row['nome_tipo'],
+                'display_name': row['display_name'],
+                'parent_tipo_id': row['parent_tipo_id']
+            }
 
-        # Processar Locais
+        # Process Locations
         for row in locais_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            # Usa o display_name para o tipo
-            tipo_display_name = tipos_map_locais.get(row['tipo_id'], 'Desconhecido') 
+            # Use the display_name for the type
+            type_info = tipos_map.get(('locais', row['tipo_id']))
+            tipo_display_name = type_info['display_name'] if type_info else 'Desconhecido' 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
             text_content = f"Local: {nome}. Tipo: {tipo_display_name}. Descrição: {perfil_json.get('descricao', 'N/A')}. Propriedades: {json.dumps(perfil_json, ensure_ascii=False)}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "local", "nome": nome, "subtipo": tipo_display_name})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "local", "nome": nome, "subtipo": tipo_display_name, "tipo_id_bd": row['tipo_id']})
             all_ids.append(f"local_{id_canonico}")
 
-        # Processar Elementos Universais
+        # Process Universal Elements
         for row in elementos_universais_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            # Usa o display_name para o tipo
-            tipo_display_name = tipos_map_elementos.get(row['tipo_id'], 'Desconhecido') 
+            # Use the display_name for the type
+            type_info = tipos_map.get(('elementos_universais', row['tipo_id']))
+            tipo_display_name = type_info['display_name'] if type_info else 'Desconhecido' 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
             text_content = f"Elemento Universal ({tipo_display_name}): {nome}. Detalhes: {json.dumps(perfil_json, ensure_ascii=False)}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "elemento_universal", "nome": nome, "subtipo": tipo_display_name})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "elemento_universal", "nome": nome, "subtipo": tipo_display_name, "tipo_id_bd": row['tipo_id']})
             all_ids.append(f"elemento_{id_canonico}")
 
-        # Processar Personagens
+        # Process Characters
         for row in personagens_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            # Usa o display_name para o tipo
-            tipo_display_name = tipos_map_personagens.get(row['tipo_id'], 'Desconhecido') 
+            # Use the display_name for the type
+            type_info = tipos_map.get(('personagens', row['tipo_id']))
+            tipo_display_name = type_info['display_name'] if type_info else 'Desconhecido' 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
             text_content = f"Personagem ({tipo_display_name}): {nome}. Descrição: {perfil_json.get('personalidade', 'N/A')}. Histórico: {perfil_json.get('historico', 'N/A')}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "personagem", "nome": nome, "subtipo": tipo_display_name})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "personagem", "nome": nome, "subtipo": tipo_display_name, "tipo_id_bd": row['tipo_id']})
             all_ids.append(f"personagem_{id_canonico}")
 
-        # Processar Facções
+        # Process Factions
         for row in faccoes_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            # Usa o display_name para o tipo
-            tipo_display_name = tipos_map_faccoes.get(row['tipo_id'], 'Desconhecido') 
+            # Use the display_name for the type
+            type_info = tipos_map.get(('faccoes', row['tipo_id']))
+            tipo_display_name = type_info['display_name'] if type_info else 'Desconhecido' 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
             text_content = f"Facção ({tipo_display_name}): {nome}. Ideologia: {perfil_json.get('ideologia', 'N/A')}. Influência: {perfil_json.get('influencia', 'N/A')}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "faccao", "nome": nome, "subtipo": tipo_display_name})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "faccao", "nome": nome, "subtipo": tipo_display_name, "tipo_id_bd": row['tipo_id']})
             all_ids.append(f"faccao_{id_canonico}")
 
-        # Processar Jogador
+        # Process Player
         for row in jogador_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
             perfil_completo_json = json.loads(row['perfil_completo_json']) if row['perfil_completo_json'] else {}
-            text_content = f"O Jogador principal: {nome} (ID: {id_canonico}). Raça: {perfil_completo_json.get('raca', 'N/A')}. Ocupação: {perfil_completo_json.get('ocupacao', 'N/A')}. Personalidade: {perfil_completo_json.get('personalidade', 'N/A')}."
+            text_content = f"The main Player: {nome} (ID: {id_canonico}). Race: {perfil_completo_json.get('raca', 'N/A')}. Occupation: {perfil_completo_json.get('ocupacao', 'N/A')}. Personality: {perfil_completo_json.get('personalidade', 'N/A')}."
             
             all_documents.append(text_content)
             all_metadatas.append({"id_canonico": id_canonico, "tipo": "jogador", "nome": nome})
             all_ids.append(f"jogador_{id_canonico}")
 
-        # Processar Posses do Jogador
-        jogador_data_map = {j['id']: j['id_canonico'] for j in jogador_data} # Mapa de ID interno para ID canônico
+        # Process Player Possessions
+        jogador_data_map = {j['id']: j['id_canonico'] for j in jogador_data} # Map internal ID to canonical ID
 
         for row in jogador_posses_data:
             posse_id_canonico = row['id_canonico'] 
@@ -189,13 +198,13 @@ class ChromaDBManager:
             jogador_id_canonico = jogador_data_map.get(jogador_id_db, "unknown_player")
 
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Posse: {item_nome} (ID: {posse_id_canonico}) de {jogador_id_canonico}. Detalhes: {json.dumps(perfil_json, ensure_ascii=False)}"
+            text_content = f"Possession: {item_nome} (ID: {posse_id_canonico}) of {jogador_id_canonico}. Details: {json.dumps(perfil_json, ensure_ascii=False)}"
             
             all_documents.append(text_content)
             all_metadatas.append({"id_canonico": posse_id_canonico, "tipo": "posse", "nome": item_nome, "jogador": jogador_id_canonico})
             all_ids.append(posse_id_canonico)
 
-        print(f"INFO: Total de {len(all_documents)} documentos coletados para embedding.")
+        print(f"INFO: Total of {len(all_documents)} documents collected for embedding.")
         
         if all_documents:
             batch_size = 10 
@@ -220,25 +229,28 @@ class ChromaDBManager:
                             metadatas=metadatas_batch,
                             ids=ids_batch
                         )
-                        print(f"INFO: Lote {i // batch_size + 1}/{ (len(all_documents) + batch_size - 1) // batch_size } de embeddings adicionado ao ChromaDB.")
+                        print(f"INFO: Batch {i // batch_size + 1}/{ (len(all_documents) + batch_size - 1) // batch_size } of embeddings added to ChromaDB.")
                     except Exception as e:
-                        print(f"ERRO ao adicionar lote ao ChromaDB: {e}")
+                        print(f"ERROR adding batch to ChromaDB: {e}")
                 else:
-                    print(f"AVISO: Lote de embeddings/IDs inconsistente ou vazio no lote {i // batch_size + 1}. Não adicionado.")
+                    print(f"WARNING: Inconsistent or empty embeddings/IDs batch in batch {i // batch_size + 1}. Not added.")
         else:
-            print("AVISO: Nenhuns documentos para adicionar ao ChromaDB.")
+            print("WARNING: No documents to add to ChromaDB.")
 
-        print("\nSUCESSO: Coleção ChromaDB populada com embeddings da lore.")
+        print("\nSUCCESS: ChromaDB collection populated with lore embeddings.")
 
     async def add_or_update_lore(self, id_canonico_principal, text_content, metadata):
         """
-        Adiciona ou atualiza um documento de lore no ChromaDB.
-        Usado para canonização dinâmica de nova lore.
-        id_canonico_principal: Um ID canônico único para a lore (geralmente o id_canonico da entidade).
+        Adds or updates a lore document in ChromaDB.
+        Used for dynamic canonization of new lore.
+        id_canonico_principal: A unique canonical ID for the lore (usually the entity's canonical_id).
+        metadata: Should now include 'subtipo' with the entity's display_name.
         """
+        # The doc_id should be unique and consistent for updates
+        # Using metadata.get('tipo', 'unknown') and id_canonico_principal
         doc_id = f"{metadata.get('tipo', 'unknown')}_{id_canonico_principal}"
         
-        print(f"INFO: Adicionando/Atualizando lore no ChromaDB para '{doc_id}'...")
+        print(f"INFO: Adding/Updating lore in ChromaDB for '{doc_id}'...")
         embedding = await self._get_embedding(text_content)
         
         if embedding:
@@ -249,22 +261,22 @@ class ChromaDBManager:
                     metadatas=[metadata],
                     ids=[doc_id]
                 )
-                print(f"INFO: Lore '{doc_id}' adicionada/atualizada no ChromaDB.")
+                print(f"INFO: Lore '{doc_id}' added/updated in ChromaDB.")
             except Exception as e:
-                print(f"ERRO ao adicionar/atualizar lore '{doc_id}' no ChromaDB: {e}")
+                print(f"ERROR adding/updating lore '{doc_id}' in ChromaDB: {e}")
         else:
-            print(f"AVISO: Não foi possível gerar embedding para '{doc_id}'. Lore não adicionada.")
+            print(f"WARNING: Could not generate embedding for '{doc_id}'. Lore not added.")
 
 
     async def find_relevant_lore(self, query_text, n_results=5):
         """
-        Busca lore relevante no ChromaDB com base em uma query de texto.
+        Searches for relevant lore in ChromaDB based on a text query.
         """
-        print(f"INFO: Buscando lore relevante para a query: '{query_text[:50]}...'")
+        print(f"INFO: Searching for relevant lore for query: '{query_text[:50]}...'")
         query_embedding = await self._get_embedding(query_text)
 
         if not query_embedding:
-            print("AVISO: Não foi possível gerar embedding para a query. Retornando vazio.")
+            print("WARNING: Could not generate embedding for the query. Returning empty.")
             return []
 
         try:
@@ -273,7 +285,7 @@ class ChromaDBManager:
                 n_results=n_results,
                 include=['documents', 'metadatas', 'distances']
             )
-            print(f"INFO: Encontrados {len(results['documents'][0])} resultados de lore.")
+            print(f"INFO: Found {len(results['documents'][0])} lore results.")
             
             formatted_results = []
             if results and results['documents'] and results['documents'][0]:
@@ -285,31 +297,34 @@ class ChromaDBManager:
                     })
             return formatted_results
         except Exception as e:
-            print(f"ERRO ao buscar lore no ChromaDB: {e}")
+            print(f"ERROR searching for lore in ChromaDB: {e}")
             return []
 
-# --- Ponto de Entrada para Teste Direto (Opcional) ---
+# --- Main Entry Point for Direct Testing (Optional) ---
 async def main_test():
-    """Função principal assíncrona para testar o ChromaDBManager diretamente."""
-    print("--- Testando ChromaDBManager ---")
+    """Asynchronous main function to test ChromaDBManager directly."""
+    print("--- Testing ChromaDBManager ---")
     chroma_manager = ChromaDBManager()
 
-    print("\nIniciando população da coleção ChromaDB a partir do SQLite (para teste direto)...")
-    # Para este teste, vamos simular alguns dados para build_collection_from_data
-    # Em um cenário real, você chamaria DataManager().get_all_entities_from_table()
+    print("\nStarting ChromaDB collection population from SQLite (for direct testing)...")
+    # For this test, we will simulate some data for build_collection_from_data
+    # In a real scenario, you would call DataManager().get_all_entities_from_table()
     mock_sqlite_data = {
         'locais': [{
             'id': 1,
             'id_canonico': 'estacao_base_alfa',
             'nome': 'Estação Base Alfa',
-            'tipo_id': 3, # Supondo que 3 é o ID para 'estacao_espacial' em tipos_entidades
+            'tipo_id': 3, # Assuming 3 is the ID for 'estacao_espacial' in tipos_entidades
             'parent_id': None,
             'perfil_json': '{"funcao": "Hub de pesquisa e comércio.", "populacao": 500, "descricao": "Uma estação espacial movimentada."}'
         }],
         'tipos_entidades': [
             {'id': 1, 'nome_tabela': 'locais', 'nome_tipo': 'espacial', 'display_name': 'Espacial', 'parent_tipo_id': None},
             {'id': 2, 'nome_tabela': 'locais', 'nome_tipo': 'construcao', 'display_name': 'Construção', 'parent_tipo_id': None},
-            {'id': 3, 'nome_tabela': 'locais', 'nome_tipo': 'estacao_espacial', 'display_name': 'Estação Espacial', 'parent_tipo_id': 1}, # Exemplo de tipo com pai
+            {'id': 3, 'nome_tabela': 'locais', 'nome_tipo': 'estacao_espacial', 'display_name': 'Estação Espacial', 'parent_tipo_id': 1}, # Example of type with parent
+            {'id': 4, 'nome_tabela': 'elementos_universais', 'nome_tipo': 'objeto', 'display_name': 'Objeto', 'parent_tipo_id': None},
+            {'id': 5, 'nome_tabela': 'personagens', 'nome_tipo': 'ser', 'display_name': 'Ser', 'parent_tipo_id': None},
+            {'id': 6, 'nome_tabela': 'faccoes', 'nome_tipo': 'grupo', 'display_name': 'Grupo', 'parent_tipo_id': None},
         ],
         'jogador': [{
             'id': 1,
@@ -332,20 +347,20 @@ async def main_test():
     }
     await chroma_manager.build_collection_from_data(mock_sqlite_data)
 
-    print("\n--- Testando busca de lore relevante ---")
-    query1 = "Quero saber sobre os laboratórios da estação."
+    print("\n--- Testing relevant lore search ---")
+    query1 = "I want to know about the station's laboratories."
     results1 = await chroma_manager.find_relevant_lore(query1)
     for r in results1:
-        print(f"  Documento: {r['document'][:100]}...")
+        print(f"  Document: {r['document'][:100]}...")
         print(f"  Metadata: {r['metadata']}")
-        print(f"  Distância: {r['distance']}\n")
+        print(f"  Distance: {r['distance']}\n")
 
-    query2 = "Quem é Gabriel?"
+    query2 = "Who is Gabriel?"
     results2 = await chroma_manager.find_relevant_lore(query2, n_results=2)
     for r in results2:
-        print(f"  Documento: {r['document'][:100]}...")
+        print(f"  Document: {r['document'][:100]}...")
         print(f"  Metadata: {r['metadata']}")
-        print(f"  Distância: {r['distance']}\n")
+        print(f"  Distance: {r['distance']}\n")
 
 if __name__ == '__main__':
     if sys.platform == "win32":

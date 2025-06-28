@@ -15,8 +15,8 @@ class Neo4jManager:
     """
     API dedicada para interagir com o Pilar C (Base de Dados de Grafo - Neo4j).
     Fornece métodos para consultar relações, caminhos e o estado do universo no grafo.
-    Versão: 1.6.0 - Implementado métodos incrementais para adicionar/atualizar nós e relações.
-                   build_graph_from_data agora usa estes métodos e não apaga o grafo inteiro (exceto na inicialização para teste).
+    Versão: 1.6.1 - build_graph_from_data agora usa display_name como nome_tipo para nós
+                   e mapeamento de tipos de entidades.
     """
     def __init__(self):
         """Inicializa o gestor e a conexão com o Neo4j."""
@@ -66,7 +66,7 @@ class Neo4jManager:
         """
         Obtém detalhes da localização atual do jogador, incluindo o próprio local,
         seus "filhos" (locais contidos hierarquicamente), e "acessos diretos" (vizinhos navegáveis).
-        Adaptado para usar .nome_tipo para o tipo do local.
+        Adaptado para usar .nome_tipo (que agora será o display_name) para o tipo do local.
         """
         query = """
             MATCH (p:Jogador {id_canonico: $id_jogador})-[:ESTA_EM]->(local_atual:Local)
@@ -75,9 +75,9 @@ class Neo4jManager:
             WHERE local_atual <> acesso_direto // Evita auto-referência
             
             RETURN
-                local_atual { .id_canonico, .nome, .nome_tipo } AS local, // Agora buscando 'nome_tipo'
-                COLLECT(DISTINCT filho { .id_canonico, .nome, .nome_tipo }) AS filhos, // Buscando 'nome_tipo'
-                COLLECT(DISTINCT acessos_diretos { .id_canonico, .nome, .nome_tipo, 'tipo_acesso': da.tipo_acesso, 'condicoes_acesso': da.condicoes_acesso }) AS acessos_diretos // Buscando 'nome_tipo'
+                local_atual { .id_canonico, .nome, .nome_tipo } AS local, // Agora buscando 'nome_tipo' (que é o display_name)
+                COLLECT(DISTINCT filho { .id_canonico, .nome, .nome_tipo }) AS filhos, // Buscando 'nome_tipo' (display_name)
+                COLLECT(DISTINCT acessos_diretos { .id_canonico, .nome, .nome_tipo, 'tipo_acesso': da.tipo_acesso, 'condicoes_acesso': da.condicoes_acesso }) AS acessos_diretos // Buscando 'nome_tipo' (display_name)
         """
         with self.driver.session() as session:
             result = session.run(query, id_jogador=player_id_canonico).single()
@@ -98,6 +98,7 @@ class Neo4jManager:
         label_base: Rótulo base do tipo de entidade (ex: 'Local', 'Personagem', 'ElementoUniversal').
         properties: Dicionário de propriedades para o nó (inclui 'nome', 'nome_tipo' etc.).
         main_label: Rótulo específico (ex: 'EstacaoEspacial'), se diferente de label_base.
+                    Este será derivado do nome_tipo do SQLite (snake_case)
         """
         if ' ' in label_base:
             label_base_cypher = f"`{label_base}`"
@@ -106,10 +107,12 @@ class Neo4jManager:
             
         specific_label_cypher = ""
         if main_label:
-            if ' ' in main_label:
-                specific_label_cypher = f":`{main_label}`"
-            else:
-                specific_label_cypher = f":{main_label}"
+            # Removendo espaços e caracteres especiais para rótulos Cypher, se for o caso
+            # Assumimos que main_label já vem como nome_tipo do SQLite (snake_case) ou display_name
+            # mas rótulos não podem ter espaços, então tratamos aqui.
+            cleaned_main_label = main_label.replace(" ", "").replace("-", "_") 
+            if cleaned_main_label: # Garante que não é uma string vazia
+                specific_label_cypher = f":`{cleaned_main_label}`" if ' ' in cleaned_main_label else f":{cleaned_main_label}"
 
         query = f"""
             MERGE (n:Entidade:{label_base_cypher}{specific_label_cypher} {{id_canonico: $id_canonico}})
@@ -173,13 +176,15 @@ class Neo4jManager:
         Cria ou atualiza uma relação universal dinâmica entre quaisquer duas entidades.
         origem_label e destino_label devem ser os rótulos do Neo4j (ex: 'Personagem', 'Local').
         """
-        if ' ' in origem_label: origem_label = f"`{origem_label}`"
-        if ' ' in destino_label: destino_label = f"`{destino_label}`"
-        
+        # Limpar rótulos para garantir compatibilidade com Cypher (remove espaços, etc.)
+        cleaned_origem_label = origem_label.replace(" ", "").replace("-", "_")
+        cleaned_destino_label = destino_label.replace(" ", "").replace("-", "_")
+        cleaned_tipo_relacao = tipo_relacao.replace(" ", "_").upper() # Relações geralmente em UPPER_SNAKE_CASE
+
         query = f"""
-            MATCH (origem:{origem_label} {{id_canonico: $origem_id}})
-            MATCH (destino:{destino_label} {{id_canonico: $destino_id}})
-            MERGE (origem)-[r:`{tipo_relacao}`]->(destino)
+            MATCH (origem:`{cleaned_origem_label}` {{id_canonico: $origem_id}})
+            MATCH (destino:`{cleaned_destino_label}` {{id_canonico: $destino_id}})
+            MERGE (origem)-[r:`{cleaned_tipo_relacao}`]->(destino)
             SET r += $props
             RETURN origem.id_canonico
         """
@@ -193,6 +198,8 @@ class Neo4jManager:
         Constrói/atualiza o grafo no Neo4j a partir de um dicionário contendo todos os dados do SQLite.
         Esta função é o coração do processo de construção do Pilar C.
         AGORA USA OS MÉTODOS INCREMENTAIS E NÃO APAGA O GRAFO INTEIRO NA RECONSTRUÇÃO EM LOTE.
+        Atualizado para usar 'display_name' como 'nome_tipo' para os nós e para
+        usar o 'nome_tipo' (snake_case) como o main_label quando apropriado.
         """
         print("\n--- A construir o Pilar C (Neo4j) a partir dos dados fornecidos (Pilar B) ---")
 
@@ -202,13 +209,16 @@ class Neo4jManager:
             print("INFO: O grafo Neo4j não será limpo completamente, apenas atualizado.")
             
 
-            # 1. Obter mapeamento de tipos_entidades (tipo_id para nome_tipo) dos dados fornecidos
-            type_id_to_name_map = {}
+            # 1. Obter mapeamento de tipos_entidades (tipo_id para nome_tipo e display_name) dos dados fornecidos
+            type_info_map = {}
             tipos_entidades_data = all_sqlite_data.get('tipos_entidades', [])
             try:
                 for row in tipos_entidades_data:
-                    type_id_to_name_map[(row['nome_tabela'], row['id'])] = row['nome_tipo']
-                print(f"DEBUG: Mapeamento de tipos_entidades carregado: {type_id_to_name_map}")
+                    type_info_map[(row['nome_tabela'], row['id'])] = {
+                        'nome_tipo': row['nome_tipo'], # Ex: 'estacao_espacial' (snake_case)
+                        'display_name': row['display_name'] # Ex: 'Estação Espacial'
+                    }
+                print(f"DEBUG: Mapeamento de tipos_entidades carregado: {type_info_map}")
             except Exception as e:
                 print(f"ERRO: Falha ao carregar mapeamento de tipos_entidades dos dados fornecidos: {e}.")
                 return # Sai da função se a tabela essencial não existe
@@ -237,14 +247,25 @@ class Neo4jManager:
                         'nome': row_dict['nome']
                     }
                     
-                    specific_label_neo4j = None # Rótulo mais específico, como 'EstacaoEspacial'
-                    
+                    # main_label_neo4j será o rótulo Cypher específico (snake_case)
+                    # nome_tipo_prop_neo4j será a propriedade 'nome_tipo' (display_name)
+                    main_label_neo4j = None 
+                    nome_tipo_prop_neo4j = None
+
                     if 'tipo_id' in row_dict and row_dict['tipo_id'] is not None:
-                        specific_label_neo4j = type_id_to_name_map.get((tabela_sqlite, row_dict['tipo_id']))
-                        if specific_label_neo4j:
-                            node_props['nome_tipo'] = specific_label_neo4j # Adiciona o nome do tipo como propriedade
-                            # Remova espaços e caracteres especiais para rótulos Cypher, se for o caso
-                            specific_label_neo4j = specific_label_neo4j.replace(" ", "") # Ex: 'Estação Espacial' -> 'EstaçãoEspacial'
+                        type_details = type_info_map.get((tabela_sqlite, row_dict['tipo_id']))
+                        if type_details:
+                            nome_tipo_prop_neo4j = type_details['display_name'] # A propriedade nome_tipo agora é o display_name
+                            main_label_neo4j = type_details['nome_tipo'] # O label específico (snake_case)
+                            node_props['nome_tipo_interno'] = type_details['nome_tipo'] # Mantém o nome_tipo interno como propriedade
+                        else:
+                            # Fallback se o tipo_id não for encontrado no mapeamento
+                            print(f"AVISO: Tipo ID {row_dict['tipo_id']} para {tabela_sqlite} não encontrado no mapeamento. Usando tipo genérico.")
+                            nome_tipo_prop_neo4j = label_base_neo4j
+                            main_label_neo4j = label_base_neo4j
+
+                    # Adiciona a propriedade 'nome_tipo' ao nó, usando o display_name
+                    node_props['nome_tipo'] = nome_tipo_prop_neo4j if nome_tipo_prop_neo4j else label_base_neo4j
                     
                     if 'perfil_json' in row_dict and row_dict['perfil_json']:
                         try:
@@ -258,7 +279,7 @@ class Neo4jManager:
                         id_canonico=node_props['id_canonico'],
                         label_base=label_base_neo4j,
                         properties=node_props,
-                        main_label=specific_label_neo4j # Passa o rótulo específico
+                        main_label=main_label_neo4j # Passa o rótulo específico (snake_case)
                     )
             
             # --- CRIAR RELAÇÕES ---
@@ -339,7 +360,3 @@ class Neo4jManager:
                 print("DEBUG: Nenhuma relação de localização do jogador encontrada nos dados fornecidos para 'jogador'.")
 
         print("\nSUCESSO: Base de dados de grafo (Neo4j) populada/atualizada.")
-
-# Removida a seção if __name__ == '__main__': test ou build,
-# pois este script agora é um módulo que será chamado por sync_databases.py.
-# Se precisar de um teste direto, use main_test no chromadb_manager ou crie um script de teste dedicado.
