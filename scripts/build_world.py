@@ -2,14 +2,15 @@ import sqlite3
 import os
 import sys
 
-# Adiciona o diretório da raiz do projeto ao sys.path para que o módulo config possa ser importado
-# Assumindo que o script build_world.py está em meu_rpg_llm/scripts/
-# E o config.py está em meu_rpg_llm/config/
+# Adiciona o diretório da raiz do projeto ao sys.path para que os módulos possam ser importados
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
+sys.path.append(os.path.join(PROJECT_ROOT, 'data')) # Adiciona o diretório 'data' ao sys.path
 
-# NOVO: Importar as configurações globais
+# Importa as configurações globais
 import config as config 
+# Importa os tipos de entidades genéricos
+import entity_types_data as entity_types_data
 
 def create_meta_tables(cursor):
     """Cria as tabelas de lookup para os tipos de entidades."""
@@ -194,53 +195,31 @@ def create_indexes(cursor):
 
 def populate_meta_tables(cursor):
     """
-    Popula as tabelas de tipos com valores iniciais genéricos e abrangentes.
-    Esses tipos servem como base para a criação aleatória de mundos.
+    Popula as tabelas de tipos com os valores genéricos definidos em entity_types_data.py.
+    Esses tipos servem como base para a IA gerar variações.
     """
-    print("Populando metatables com tipos iniciais genéricos...")
-    tipos = {
-        'locais': [
-            "Planeta", "Lua", "Asteróide", "Cometa", "Nebulosa", "Buraco Negro", "Estrela", "Setor Estelar", "Sistema Estelar",
-            "Estação Espacial", "Nave Espacial", "Base Subterrânea", "Cidade", "Ruínas", "Templo", "Caverna", "Floresta",
-            "Montanha", "Deserto", "Oceano", "Pântano", "Vulcão", "Vale", "Rio", "Lago", "Prado", "Tundra", "Selva",
-            "Laboratório", "Prisão", "Hospital", "Bar", "Loja", "Mercado", "Área Residencial", "Área Industrial",
-            "Zona de Quarentena", "Dimensão Alternativa", "Vazio Cósmico", "Campo de Detritos", "Posto Avançado", "Colônia"
-        ],
-        'elementos_universais': [
-            "Tecnologia", "Magia", "Recurso", "Poder", "Artefato", "Fenomeno", "Item_Especial", "Arma", "Armadura",
-            "Consumível", "Veículo", "Ferramenta", "Informação", "Conceito Abstrato", "Entidade Energética"
-        ],
-        'personagens': [
-            "Jogador", "NPC", "Mercador", "Guarda", "Cientista", "Engenheiro", "Médico", "Piloto", "Comandante",
-            "Fugitivo", "Explorador", "Criminoso", "Líder", "Androide", "Ciborgue", "Mutante", "Alienígena", "Criatura",
-            "Espírito", "Divindade", "Serviçal", "Símbolo", "Fantasma", "Entidade Mística"
-        ],
-        'faccoes': [
-            "Reino", "Império", "Corporação", "Guilda", "Tribo", "Aliança", "Culto", "Organização Secreta",
-            "Governo", "Rebelião", "Clã", "Federação", "Sindicato", "Coletivo", "Ordem", "Associação Mercenária"
-        ]
-    }
-    
-    for nome_tabela, lista_tipos in tipos.items():
+    print("Populando metatables com tipos iniciais genéricos do entity_types_data.py...")
+    # Usa GENERIC_ENTITY_TYPES do módulo entity_types_data
+    for nome_tabela, lista_tipos in entity_types_data.GENERIC_ENTITY_TYPES.items():
         for nome_tipo in lista_tipos:
             cursor.execute(
-                "INSERT OR IGNORE INTO tipos_entidades (nome_tabela, nome_tipo) VALUES (?, ?)", # Usar INSERT OR IGNORE para idempotência
+                "INSERT OR IGNORE INTO tipos_entidades (nome_tabela, nome_tipo) VALUES (?, ?)",
                 (nome_tabela, nome_tipo)
             )
 
 def setup_database(cursor):
     """
-    Cria a estrutura completa e vazia da base de dados (v9.6).
-    Versão: 9.6 - Tipos de entidades expandidos para maior aleatoriedade inicial.
+    Cria a estrutura completa e vazia da base de dados (v9.7).
+    Versão: 9.7 - Importação de tipos genéricos do entity_types_data.py.
     """
-    print("--- Configurando a Base de Dados (v9.6) ---")
+    print("--- Configurando a Base de Dados (v9.7) ---")
     create_meta_tables(cursor)
     create_core_tables(cursor)
     create_player_tables(cursor)
     create_relationship_tables(cursor)
     create_indexes(cursor)
     populate_meta_tables(cursor)
-    print("SUCESSO: Base de dados v9.6 configurada com tabelas vazias e tipos preenchidos.")
+    print("SUCESSO: Base de dados v9.7 configurada com tabelas vazias e tipos preenchidos.")
 
 def main():
     """
@@ -257,7 +236,7 @@ def main():
     try:
         setup_database(cursor)
         conn.commit()
-        print(f"\n--- Estrutura do Mundo (v9.6) Verificada/Criada com Sucesso ---")
+        print(f"\n--- Estrutura do Mundo (v9.7) Verificada/Criada com Sucesso ---")
         print(f"O arquivo '{config.DB_PATH_SQLITE}' está pronto para uso e seus dados serão persistidos.")
         
     except Exception as e:
