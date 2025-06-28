@@ -16,26 +16,27 @@ import config as config
 # Importar os gestores dos pilares
 from data_manager import DataManager
 from chromadb_manager import ChromaDBManager
-from neo4j_manager import Neo4jManager # AGORA IMPORTAMOS NEO4JMANAGER
+from neo4j_manager import Neo4jManager 
 
 class AgenteMJ:
     """
-    O cérebro do Mestre de Jogo (v2.21).
+    O cérebro do Mestre de Jogo (v2.25).
     Responsável por gerir o estado do jogo e interagir com o LLM.
     AGORA ATUA COMO ORQUESTRADOR DIRETO DAS ATUALIZAÇÕES DOS PILARES (SQLite + ChromaDB + Neo4j) EM TEMPO REAL.
-    (Change: Neo4j Manager instanciado e chamadas para atualização em tempo real adicionadas no _chamar_llm.
-             Versão: 2.21)
+    (Change: Corrigida a lógica de determinação do 'tipo' para nós do jogador no Neo4j,
+             evitando a atribuição de 'Desconhecido'.
+             Versão: 2.25)
     """
     def __init__(self):
         """
         Inicializa o AgenteMJ e as conexões com os gestores dos pilares.
         """
-        print("--- Agente Mestre de Jogo (MJ) v2.21 a iniciar... ---")
+        print("--- Agente Mestre de Jogo (MJ) v2.25 a iniciar... ---")
         try:
             # DataManager AGORA É SÍNCRONO e NÃO recebe chroma_manager mais.
             self.data_manager = DataManager() 
             self.chroma_manager = ChromaDBManager()
-            self.neo4j_manager = Neo4jManager() # INSTANCIAMOS NEO4JMANAGER AQUI
+            self.neo4j_manager = Neo4jManager() 
 
             print("INFO: Conexão com DataManager, ChromaDBManager e Neo4jManager estabelecida.")
             # Verificar se o genai_client no ChromaDBManager foi inicializado
@@ -166,6 +167,7 @@ class AgenteMJ:
         - Progresso Implícito: O progresso em habilidades é comunicado de maneira narrativa, não de forma técnica.
         - Imersão Total: O jogador vivencia o mundo através dos sentidos e limitações do personagem.
         - **Criação Inicial do Mundo**: Se o jogador não existir, você DEVE iniciar a aventura criando o jogador e seu local inicial. Você tem TOTAL LIBERDADE CRIATIVA para definir o nome do jogador, suas características, o tipo de ambiente inicial (planeta, estação, floresta, cidade, etc.) e o nome desse local. Crie IDs canônicos únicos (ex: 'pj_nome_inventado', 'local_planeta_verde'). Não há restrições de cenário; crie o que você sentir ser mais interessante para o início da história.
+          Ao criar entidades, o parâmetro 'tipo' é uma STRING LIVRE. Por exemplo, para um local, você pode usar 'Floresta Envelhecida', 'Estação Espacial Comercial', 'Templo Subterrâneo' etc. A IA tem total liberdade para nomear os tipos das entidades.
         """
 
         jogador_base = contexto['jogador']['base']
@@ -206,7 +208,7 @@ class AgenteMJ:
 # INSTRUÇÃO CRÍTICA PARA CRIAÇÃO DO MUNDO (Se o Jogador não existir):
 O jogo está começando do zero. Seu objetivo é estabelecer o ponto de partida da aventura.
 Você DEVE realizar as seguintes ações, usando as funções do DataManager (via Function Calling):
-1. Crie um local inicial (add_or_get_location). Dê a ele um nome, um tipo (ex: 'Planeta', 'Floresta', 'Nave Espacial', 'Cidade Subterrânea') e uma descrição em 'perfil_json_data'. Crie um 'id_canonico' único (ex: 'local_floresta_sombria').
+1. Crie um local inicial (add_or_get_location). Dê a ele um nome, um 'tipo' (STRING LIVRE, ex: 'Planeta Verdejante', 'Estação de Mineração Abandonada') e uma descrição em 'perfil_json_data'. Crie um 'id_canonico' único (ex: 'local_floresta_sombria').
 2. Crie o personagem do jogador (add_or_get_player) com o id_canonico '{config.DEFAULT_PLAYER_ID_CANONICO}'. Dê a ele um nome (ex: 'Gabriel', 'Elara'), um perfil completo em 'perfil_completo_data' (raça, ocupação, personalidade) e vincule-o ao 'id_canonico' do local que você acabou de criar.
 Após a criação, inicie a narrativa descrevendo o ambiente e o que o jogador (com o nome que você definiu para o personagem com ID '{config.DEFAULT_PLAYER_ID_CANONICO}') percebe.
 """
@@ -280,11 +282,11 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                         "properties": {
                             "id_canonico": {"type": "string", "description": "ID canônico único do local (ex: 'estacao_alfa', 'planeta_gaia')."},
                             "nome": {"type": "string", "description": "Nome legível do local."},
-                            "tipo_nome": {"type": "string", "description": "Tipo do local (ex: 'Estação Espacial', 'Planeta', 'Sala'). Deve ser um tipo conhecido."},
+                            "tipo": {"type": "string", "description": "Tipo do local (STRING LIVRE, ex: 'Estação Espacial', 'Planeta', 'Sala')."},
                             "perfil_json_data": {"type": "string", "description": "Dados adicionais do local em formato JSON string (ex: '{\"descricao\": \"Um hub de comércio.\"}' ).", "nullable": True},
                             "parent_id_canonico": {"type": "string", "description": "ID canônico do local pai, se houver (ex: uma sala dentro de uma estação).", "nullable": True}
                         },
-                        "required": ["id_canonico", "nome", "tipo_nome"]
+                        "required": ["id_canonico", "nome", "tipo"]
                     }
                 },
                 {
@@ -440,10 +442,10 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                         "properties": {
                             "id_canonico": {"type": "string", "description": "ID canônico único do elemento."},
                             "nome": {"type": "string", "description": "Nome legível do elemento."},
-                            "tipo_nome": {"type": "string", "description": "Tipo do elemento (ex: 'Tecnologia', 'Magia')."},
+                            "tipo": {"type": "string", "description": "Tipo do elemento (STRING LIVRE, ex: 'Tecnologia Antiga', 'Magia Elemental')."},
                             "perfil_json_data": {"type": "string", "description": "Dados adicionais do elemento em JSON string.", "nullable": True}
                         },
-                        "required": ["id_canonico", "nome", "tipo_nome"]
+                        "required": ["id_canonico", "nome", "tipo"]
                     }
                 },
                 {
@@ -454,10 +456,10 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                         "properties": {
                             "id_canonico": {"type": "string", "description": "ID canônico único do personagem."},
                             "nome": {"type": "string", "description": "Nome legível do personagem."},
-                            "tipo_nome": {"type": "string", "description": "Tipo do personagem (ex: 'NPC', 'Monstro')."},
+                            "tipo": {"type": "string", "description": "Tipo do personagem (STRING LIVRE, ex: 'Comerciante Itinerante', 'Cientista Rebelde')."},
                             "perfil_json_data": {"type": "string", "description": "Dados adicionais do personagem em JSON string.", "nullable": True}
                         },
-                        "required": ["id_canonico", "nome", "tipo_nome"]
+                        "required": ["id_canonico", "nome", "tipo"]
                     }
                 },
                 {
@@ -468,10 +470,10 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                         "properties": {
                             "id_canonico": {"type": "string", "description": "ID canônico único da facção."},
                             "nome": {"type": "string", "description": "Nome legível da facção."},
-                            "tipo_nome": {"type": "string", "description": "Tipo da facção (ex: 'Reino', 'Corporação')."},
+                            "tipo": {"type": "string", "description": "Tipo da facção (STRING LIVRE, ex: 'Reino Subterrâneo', 'Corporação Interestelar')."},
                             "perfil_json_data": {"type": "string", "description": "Dados adicionais da facção em JSON string.", "nullable": True}
                         },
-                        "required": ["id_canonico", "nome", "tipo_nome"]
+                        "required": ["id_canonico", "nome", "tipo"]
                     }
                 },
             ]}
@@ -569,11 +571,21 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                                     text_content_for_chroma = ""
                                                     metadata_for_chroma = {"id_canonico": id_canonico_to_sync, "tipo": table_name}
 
+                                                    # Corrigido: Para jogador, use uma string de tipo mais específica ou 'Jogador'
+                                                    if table_name == "jogador":
+                                                        # Tenta usar raça ou ocupação do perfil completo, caso contrário, usa 'Jogador'
+                                                        profile_data = json.loads(entity_details.get('perfil_completo_json', '{}'))
+                                                        entity_type_string_for_node = profile_data.get('raca') or profile_data.get('ocupacao') or 'Jogador'
+                                                    else:
+                                                        # Para outras tabelas, 'tipo' já está na linha
+                                                        entity_type_string_for_node = entity_details.get('tipo', 'Desconhecido')
+
+
                                                     if table_name == "locais":
                                                         desc = json.loads(entity_details.get('perfil_json', '{}')).get('descricao', 'N/A')
-                                                        text_content_for_chroma = f"Local: {entity_details.get('nome')}. Tipo: {entity_details.get('tipo')}. Descrição: {desc}. Propriedades: {entity_details.get('perfil_json')}"
+                                                        text_content_for_chroma = f"Local: {entity_details.get('nome')}. Tipo: {entity_type_string_for_node}. Descrição: {desc}. Propriedades: {entity_details.get('perfil_json')}"
                                                         metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                        metadata_for_chroma["subtipo"] = entity_details.get('tipo')
+                                                        metadata_for_chroma["subtipo"] = entity_type_string_for_node # 'subtipo' agora usa a string direta
                                                     elif table_name == "jogador":
                                                         profile_data = json.loads(entity_details.get('perfil_completo_json', '{}'))
                                                         text_content_for_chroma = f"O Jogador principal: {entity_details.get('nome')} (ID: {id_canonico_to_sync}). Raça: {profile_data.get('raca', 'N/A')}. Ocupação: {profile_data.get('ocupacao', 'N/A')}. Personalidade: {profile_data.get('personalidade', 'N/A')}."
@@ -585,19 +597,19 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                                         metadata_for_chroma["jogador"] = processed_args.get('jogador_id_canonico')
                                                     elif table_name == "elementos_universais":
                                                         profile_data = json.loads(entity_details.get('perfil_json', '{}'))
-                                                        text_content_for_chroma = f"Elemento Universal ({entity_details.get('tipo')}): {entity_details.get('nome')}. Detalhes: {profile_data}."
+                                                        text_content_for_chroma = f"Elemento Universal ({entity_type_string_for_node}): {entity_details.get('nome')}. Detalhes: {profile_data}."
                                                         metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                        metadata_for_chroma["subtipo"] = entity_details.get('tipo')
+                                                        metadata_for_chroma["subtipo"] = entity_type_string_for_node
                                                     elif table_name == "personagens":
                                                         profile_data = json.loads(entity_details.get('perfil_json', '{}'))
-                                                        text_content_for_chroma = f"Personagem ({entity_details.get('tipo')}): {entity_details.get('nome')}. Descrição: {profile_data.get('personalidade', 'N/A')}. Histórico: {profile_data.get('historico', 'N/A')}."
+                                                        text_content_for_chroma = f"Personagem ({entity_type_string_for_node}): {entity_details.get('nome')}. Descrição: {profile_data.get('personalidade', 'N/A')}. Histórico: {profile_data.get('historico', 'N/A')}."
                                                         metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                        metadata_for_chroma["subtipo"] = entity_details.get('tipo')
+                                                        metadata_for_chroma["subtipo"] = entity_type_string_for_node
                                                     elif table_name == "faccoes":
                                                         profile_data = json.loads(entity_details.get('perfil_json', '{}'))
-                                                        text_content_for_chroma = f"Facção ({entity_details.get('tipo')}): {entity_details.get('nome')}. Ideologia: {profile_data.get('ideologia', 'N/A')}. Influência: {profile_data.get('influencia', 'N/A')}."
+                                                        text_content_for_chroma = f"Facção ({entity_type_string_for_node}): {entity_details.get('nome')}. Ideologia: {profile_data.get('ideologia', 'N/A')}. Influência: {profile_data.get('influencia', 'N/A')}."
                                                         metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                        metadata_for_chroma["subtipo"] = entity_details.get('tipo')
+                                                        metadata_for_chroma["subtipo"] = entity_type_string_for_node
                                                     
                                                     if text_content_for_chroma:
                                                         await self.chroma_manager.add_or_update_lore(id_canonico_to_sync, text_content_for_chroma, metadata_for_chroma)
@@ -610,7 +622,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                             # Aqui adicionamos a lógica para atualizar o Neo4j
                                             neo4j_label_map = {
                                                 "locais": "Local",
-                                                "jogador": "Jogador",
+                                                "jogador": "Jogador", # Label base para o jogador
                                                 "elementos_universais": "ElementoUniversal",
                                                 "personagens": "Personagem",
                                                 "faccoes": "Faccao",
@@ -623,22 +635,23 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                                 node_properties = {
                                                     "id_canonico": entity_details['id_canonico'],
                                                     "nome": entity_details['nome'],
-                                                    "nome_tipo": entity_details.get('tipo', base_label) # Usa 'tipo' do join, ou fallback para base_label
+                                                    "nome_tipo": entity_type_string_for_node # Usa a string de tipo determinada acima
                                                 }
                                                 if entity_details.get('perfil_json'):
                                                     try:
                                                         node_properties.update(json.loads(entity_details['perfil_json']))
                                                     except json.JSONDecodeError:
                                                         node_properties['perfil_json_raw'] = entity_details['perfil_json']
-
-                                                specific_label = entity_details.get('tipo') # Ex: 'Estação Espacial'
+                                                
+                                                # specific_label para Neo4j (ex: 'EstacaoEspacial') vem da string de tipo
+                                                specific_label = entity_type_string_for_node # Usa a string de tipo determinada acima
                                                 
                                                 # 1. Adicionar/Atualizar o nó principal
                                                 self.neo4j_manager.add_or_update_node(
                                                     id_canonico=entity_details['id_canonico'],
                                                     label_base=base_label,
                                                     properties=node_properties,
-                                                    main_label=specific_label # Passa o rótulo específico
+                                                    main_label=specific_label # Passa o rótulo específico (string 'tipo' limpa)
                                                 )
                                                 print(f"INFO: Nó Neo4j para '{entity_details['nome']}' ({entity_details['id_canonico']}) atualizado.")
 
@@ -680,12 +693,14 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                                     print(f"INFO: Relação DA_ACESSO_A entre '{processed_args['origem_id_canonico']}' e '{processed_args['destino_id_canonico']}' atualizada no Neo4j.")
                                                 
                                                 elif function_name == "add_universal_relation":
+                                                    # origem_tipo_tabela e destino_tipo_tabela são os nomes das tabelas (ex: 'personagens')
+                                                    # A função add_or_update_universal_relation no neo4j_manager já limpa esses rótulos
                                                     self.neo4j_manager.add_or_update_universal_relation(
                                                         origem_id_canonico=processed_args['origem_id_canonico'],
-                                                        origem_label=processed_args['origem_tipo_tabela'].capitalize(), # Usar a tabela SQLite como label base (ex: 'Personagens')
+                                                        origem_label=neo4j_label_map.get(processed_args['origem_tipo_tabela'], processed_args['origem_tipo_tabela'].capitalize()), 
                                                         tipo_relacao=processed_args['tipo_relacao'],
                                                         destino_id_canonico=processed_args['destino_id_canonico'],
-                                                        destino_label=processed_args['destino_tipo_tabela'].capitalize(), # Usar a tabela SQLite como label base
+                                                        destino_label=neo4j_label_map.get(processed_args['destino_tipo_tabela'], processed_args['destino_tipo_tabela'].capitalize()), 
                                                         propriedades_data=processed_args.get('propriedades_data')
                                                     )
                                                     print(f"INFO: Relação universal '{processed_args['tipo_relacao']}' atualizada no Neo4j.")
@@ -799,4 +814,3 @@ if __name__ == '__main__':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     asyncio.run(main())
-

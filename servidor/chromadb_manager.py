@@ -19,9 +19,10 @@ import config as config
 
 class ChromaDBManager:
     """
-    API dedicated to interacting with Pillar A (Vector Database - ChromaDB).
-    Responsible for storing and searching embeddings for game lore.
-    Version: 1.4.0 - Adapted to use display_name in document and embedding metadata construction.
+    API dedicada para interagir com o Pilar A (Base de Dados Vetorial - ChromaDB).
+    Responsável por armazenar e buscar embeddings para a lore do jogo.
+    Versão: 1.4.1 - Adaptado para a remoção da tabela 'tipos_entidades'.
+                   O tipo das entidades agora é uma string direta.
     """
     def __init__(self, chroma_path=config.CHROMA_PATH):
         """Initializes the manager and the connection to ChromaDB."""
@@ -76,7 +77,7 @@ class ChromaDBManager:
         """
         Reads textual data from an 'all_sqlite_data' dictionary (which comes from DataManager),
         generates embeddings, and populates them in ChromaDB. Forces collection cleanup and reconstruction.
-        Now uses 'display_name' from 'tipos_entidades' for more descriptive embeddings.
+        Now uses the direct 'tipo' string from entities.
         """
         print("\n--- Building Pillar A (ChromaDB) from provided data ---")
         
@@ -108,73 +109,55 @@ class ChromaDBManager:
         faccoes_data = all_sqlite_data.get('faccoes', [])
         jogador_data = all_sqlite_data.get('jogador', [])
         jogador_posses_data = all_sqlite_data.get('jogador_posses', [])
-        tipos_entidades_data = all_sqlite_data.get('tipos_entidades', [])
-
-        # Create type maps from provided data, using display_name
-        # Note that the key is the numeric 'id' of the tipos_entidades table
-        # We also need the nome_tipo (snake_case) for some internal uses or as fallback
-        tipos_map = {}
-        for row in tipos_entidades_data:
-            tipos_map[(row['nome_tabela'], row['id'])] = {
-                'nome_tipo': row['nome_tipo'],
-                'display_name': row['display_name'],
-                'parent_tipo_id': row['parent_tipo_id']
-            }
+        # tipos_entidades_data is no longer used directly for entity types
+        # tipos_entidades_data = all_sqlite_data.get('tipos_entidades', [])
 
         # Process Locations
         for row in locais_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            # Use the display_name for the type
-            type_info = tipos_map.get(('locais', row['tipo_id']))
-            tipo_display_name = type_info['display_name'] if type_info else 'Desconhecido' 
+            tipo = row.get('tipo', 'Desconhecido') # Get 'tipo' directly as a string
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Local: {nome}. Tipo: {tipo_display_name}. Descrição: {perfil_json.get('descricao', 'N/A')}. Propriedades: {json.dumps(perfil_json, ensure_ascii=False)}"
+            text_content = f"Local: {nome}. Tipo: {tipo}. Descrição: {perfil_json.get('descricao', 'N/A')}. Propriedades: {json.dumps(perfil_json, ensure_ascii=False)}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "local", "nome": nome, "subtipo": tipo_display_name, "tipo_id_bd": row['tipo_id']})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "local", "nome": nome, "subtipo": tipo})
             all_ids.append(f"local_{id_canonico}")
 
         # Process Universal Elements
         for row in elementos_universais_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            # Use the display_name for the type
-            type_info = tipos_map.get(('elementos_universais', row['tipo_id']))
-            tipo_display_name = type_info['display_name'] if type_info else 'Desconhecido' 
+            tipo = row.get('tipo', 'Desconhecido') # Get 'tipo' directly as a string
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Elemento Universal ({tipo_display_name}): {nome}. Detalhes: {json.dumps(perfil_json, ensure_ascii=False)}"
+            text_content = f"Elemento Universal ({tipo}): {nome}. Detalhes: {json.dumps(perfil_json, ensure_ascii=False)}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "elemento_universal", "nome": nome, "subtipo": tipo_display_name, "tipo_id_bd": row['tipo_id']})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "elemento_universal", "nome": nome, "subtipo": tipo})
             all_ids.append(f"elemento_{id_canonico}")
 
         # Process Characters
         for row in personagens_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            # Use the display_name for the type
-            type_info = tipos_map.get(('personagens', row['tipo_id']))
-            tipo_display_name = type_info['display_name'] if type_info else 'Desconhecido' 
+            tipo = row.get('tipo', 'Desconhecido') # Get 'tipo' directly as a string
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Personagem ({tipo_display_name}): {nome}. Descrição: {perfil_json.get('personalidade', 'N/A')}. Histórico: {perfil_json.get('historico', 'N/A')}"
+            text_content = f"Personagem ({tipo}): {nome}. Descrição: {perfil_json.get('personalidade', 'N/A')}. Histórico: {perfil_json.get('historico', 'N/A')}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "personagem", "nome": nome, "subtipo": tipo_display_name, "tipo_id_bd": row['tipo_id']})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "personagem", "nome": nome, "subtipo": tipo})
             all_ids.append(f"personagem_{id_canonico}")
 
         # Process Factions
         for row in faccoes_data:
             id_canonico = row['id_canonico']
             nome = row['nome']
-            # Use the display_name for the type
-            type_info = tipos_map.get(('faccoes', row['tipo_id']))
-            tipo_display_name = type_info['display_name'] if type_info else 'Desconhecido' 
+            tipo = row.get('tipo', 'Desconhecido') # Get 'tipo' directly as a string
             perfil_json = json.loads(row['perfil_json']) if row['perfil_json'] else {}
-            text_content = f"Facção ({tipo_display_name}): {nome}. Ideologia: {perfil_json.get('ideologia', 'N/A')}. Influência: {perfil_json.get('influencia', 'N/A')}"
+            text_content = f"Facção ({tipo}): {nome}. Ideologia: {perfil_json.get('ideologia', 'N/A')}. Influência: {perfil_json.get('influencia', 'N/A')}"
             
             all_documents.append(text_content)
-            all_metadatas.append({"id_canonico": id_canonico, "tipo": "faccao", "nome": nome, "subtipo": tipo_display_name, "tipo_id_bd": row['tipo_id']})
+            all_metadatas.append({"id_canonico": id_canonico, "tipo": "faccao", "nome": nome, "subtipo": tipo})
             all_ids.append(f"faccao_{id_canonico}")
 
         # Process Player
@@ -244,7 +227,7 @@ class ChromaDBManager:
         Adds or updates a lore document in ChromaDB.
         Used for dynamic canonization of new lore.
         id_canonico_principal: A unique canonical ID for the lore (usually the entity's canonical_id).
-        metadata: Should now include 'subtipo' with the entity's display_name.
+        metadata: Should now include 'subtipo' with the entity's direct 'tipo' string.
         """
         # The doc_id should be unique and consistent for updates
         # Using metadata.get('tipo', 'unknown') and id_canonico_principal
@@ -314,18 +297,12 @@ async def main_test():
             'id': 1,
             'id_canonico': 'estacao_base_alfa',
             'nome': 'Estação Base Alfa',
-            'tipo_id': 3, # Assuming 3 is the ID for 'estacao_espacial' in tipos_entidades
+            'tipo': 'Estação Espacial', # 'tipo' is now a direct string
             'parent_id': None,
             'perfil_json': '{"funcao": "Hub de pesquisa e comércio.", "populacao": 500, "descricao": "Uma estação espacial movimentada."}'
         }],
-        'tipos_entidades': [
-            {'id': 1, 'nome_tabela': 'locais', 'nome_tipo': 'espacial', 'display_name': 'Espacial', 'parent_tipo_id': None},
-            {'id': 2, 'nome_tabela': 'locais', 'nome_tipo': 'construcao', 'display_name': 'Construção', 'parent_tipo_id': None},
-            {'id': 3, 'nome_tabela': 'locais', 'nome_tipo': 'estacao_espacial', 'display_name': 'Estação Espacial', 'parent_tipo_id': 1}, # Example of type with parent
-            {'id': 4, 'nome_tabela': 'elementos_universais', 'nome_tipo': 'objeto', 'display_name': 'Objeto', 'parent_tipo_id': None},
-            {'id': 5, 'nome_tabela': 'personagens', 'nome_tipo': 'ser', 'display_name': 'Ser', 'parent_tipo_id': None},
-            {'id': 6, 'nome_tabela': 'faccoes', 'nome_tipo': 'grupo', 'display_name': 'Grupo', 'parent_tipo_id': None},
-        ],
+        # 'tipos_entidades' no longer directly used in this manager for entity types
+        # 'tipos_entidades': [], 
         'jogador': [{
             'id': 1,
             'id_canonico': 'pj_gabriel_oliveira',

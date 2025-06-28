@@ -5,43 +5,29 @@ import sys
 # Adiciona o diretório da raiz do projeto ao sys.path para que os módulos possam ser importados
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
-sys.path.append(os.path.join(PROJECT_ROOT, 'data')) # Adiciona o diretório 'data' ao sys.path
+sys.path.append(os.path.join(PROJECT_ROOT, 'data')) # Adiciona o diretório 'data' ao sys.path - ainda necessário para o config
 
 # Importa as configurações globais
 import config as config 
-# Importa os tipos de entidades genéricos
-import entity_types_data as entity_types_data # type: ignore
+# entity_types_data não é mais necessário aqui, pois os tipos não serão pré-populados.
+# import entity_types_data as entity_types_data # type: ignore
 
-def create_meta_tables(cursor):
-    """
-    Cria as tabelas de lookup para os tipos de entidades.
-    Adicionado: display_name para nomes amigáveis e parent_tipo_id para hierarquia.
-    """
-    print("Criando metatables para tipos...")
-    cursor.executescript("""
-        CREATE TABLE IF NOT EXISTS tipos_entidades (
-            id INTEGER PRIMARY KEY,
-            nome_tabela TEXT NOT NULL,   -- Ex: 'locais', 'faccoes'
-            nome_tipo TEXT NOT NULL,     -- Ex: 'planeta', 'reino' (em snake_case)
-            display_name TEXT NOT NULL,  -- Ex: 'Planeta', 'Reino' (nome legível)
-            parent_tipo_id INTEGER,      -- ID do tipo pai para hierarquia
-            UNIQUE(nome_tabela, nome_tipo),
-            FOREIGN KEY (parent_tipo_id) REFERENCES tipos_entidades(id) ON DELETE RESTRICT
-        );
-    """)
+# create_meta_tables é removida pois a tabela tipos_entidades não será usada.
 
 def create_core_tables(cursor):
-    """Cria as tabelas principais de entidades."""
+    """
+    Cria as tabelas principais de entidades.
+    REMOVIDO: Coluna tipo_id e suas FOREIGN KEY. O tipo agora será uma string direta.
+    """
     print("Criando tabelas de entidades principais...")
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS locais (
             id INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
-            tipo_id INTEGER,
+            tipo TEXT, -- O tipo agora é uma string direta, não um ID de lookup
             parent_id INTEGER,
             perfil_json TEXT,
-            FOREIGN KEY (tipo_id) REFERENCES tipos_entidades(id),
             FOREIGN KEY (parent_id) REFERENCES locais(id) ON DELETE RESTRICT
         );
 
@@ -49,27 +35,24 @@ def create_core_tables(cursor):
             id INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
-            tipo_id INTEGER,
-            perfil_json TEXT,
-            FOREIGN KEY (tipo_id) REFERENCES tipos_entidades(id)
+            tipo TEXT, -- O tipo agora é uma string direta
+            perfil_json TEXT
         );
 
         CREATE TABLE IF NOT EXISTS personagens (
             id INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
-            tipo_id INTEGER,
-            perfil_json TEXT,
-            FOREIGN KEY (tipo_id) REFERENCES tipos_entidades(id)
+            tipo TEXT, -- O tipo agora é uma string direta
+            perfil_json TEXT
         );
 
         CREATE TABLE IF NOT EXISTS faccoes (
             id INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
-            tipo_id INTEGER,
-            perfil_json TEXT,
-            FOREIGN KEY (tipo_id) REFERENCES tipos_entidades(id)
+            tipo TEXT, -- O tipo agora é uma string direta
+            perfil_json TEXT
         );
     """)
 
@@ -93,6 +76,7 @@ def create_player_tables(cursor):
             nome TEXT NOT NULL,
             nivel_subnivel TEXT,
             observacoes TEXT,
+            UNIQUE(jogador_id, categoria, nome), -- Adicionando UNIQUE para idempotência
             FOREIGN KEY (jogador_id) REFERENCES jogador(id)
         );
 
@@ -103,6 +87,7 @@ def create_player_tables(cursor):
             nome TEXT NOT NULL,
             nivel INTEGER,
             descricao TEXT,
+            UNIQUE(jogador_id, categoria, nome), -- Adicionando UNIQUE para idempotência
             FOREIGN KEY (jogador_id) REFERENCES jogador(id)
         );
 
@@ -172,21 +157,24 @@ def create_relationship_tables(cursor):
     """)
 
 def create_indexes(cursor):
-    """Cria índices para otimização de consultas."""
+    """
+    Cria índices para otimização de consultas.
+    REMOVIDO: Índices relacionados a tipo_id.
+    """
     print("Criando índices para otimização...")
     cursor.executescript("""
         CREATE INDEX IF NOT EXISTS idx_locais_id_canonico ON locais(id_canonico);
         CREATE INDEX IF NOT EXISTS idx_locais_parent_id ON locais(parent_id);
-        CREATE INDEX IF NOT EXISTS idx_locais_tipo_id ON locais(tipo_id);
+        -- REMOVIDO: CREATE INDEX IF NOT EXISTS idx_locais_tipo_id ON locais(tipo); -- Agora 'tipo' é string, não precisa de índice aqui como ID
 
         CREATE INDEX IF NOT EXISTS idx_elementos_universais_id_canonico ON elementos_universais(id_canonico);
-        CREATE INDEX IF NOT EXISTS idx_elementos_universais_tipo_id ON elementos_universais(tipo_id);
+        -- REMOVIDO: CREATE INDEX IF NOT EXISTS idx_elementos_universais_tipo_id ON elementos_universais(tipo);
 
         CREATE INDEX IF NOT EXISTS idx_personagens_id_canonico ON personagens(id_canonico);
-        CREATE INDEX IF NOT EXISTS idx_personagens_tipo_id ON personagens(tipo_id);
+        -- REMOVIDO: CREATE INDEX IF NOT EXISTS idx_personagens_tipo_id ON personagens(tipo);
 
         CREATE INDEX IF NOT EXISTS idx_faccoes_id_canonico ON faccoes(id_canonico);
-        CREATE INDEX IF NOT EXISTS idx_faccoes_tipo_id ON faccoes(tipo_id);
+        -- REMOVIDO: CREATE INDEX IF NOT EXISTS idx_faccoes_tipo_id ON faccoes(tipo);
         
         CREATE INDEX IF NOT EXISTS idx_jogador_id_canonico ON jogador(id_canonico);
         CREATE INDEX IF NOT EXISTS idx_jogador_local_atual_id ON jogador(local_atual_id);
@@ -199,36 +187,21 @@ def create_indexes(cursor):
         CREATE INDEX IF NOT EXISTS idx_relacoes_entidades_tipo_relacao ON relacoes_entidades(tipo_relacao);
     """)
 
-def populate_meta_tables(cursor):
-    """
-    Popula as tabelas de tipos com os valores genéricos definidos em entity_types_data.py.
-    Esses tipos servem como base para a IA gerar variações.
-    Agora insere 'display_name' (capitalizado) e 'parent_tipo_id' (NULL para os genéricos).
-    """
-    print("Populando metatables com tipos iniciais genéricos do entity_types_data.py...")
-    # Usa GENERIC_ENTITY_TYPES do módulo entity_types_data
-    for nome_tabela, lista_tipos in entity_types_data.GENERIC_ENTITY_TYPES.items():
-        for nome_tipo_snake_case in lista_tipos:
-            # Capitaliza a primeira letra para o display_name (ex: 'espacial' -> 'Espacial')
-            display_name = nome_tipo_snake_case[0].upper() + nome_tipo_snake_case[1:]
-            cursor.execute(
-                "INSERT OR IGNORE INTO tipos_entidades (nome_tabela, nome_tipo, display_name, parent_tipo_id) VALUES (?, ?, ?, ?)",
-                (nome_tabela, nome_tipo_snake_case, display_name, None) # parent_tipo_id é NULL para tipos genéricos
-            )
+# populate_meta_tables é removida pois a tabela tipos_entidades não será usada.
 
 def setup_database(cursor):
     """
-    Cria a estrutura completa e vazia da base de dados (v9.8).
-    Versão: 9.8 - Adicionado display_name e parent_tipo_id à tipos_entidades.
+    Cria a estrutura completa e vazia da base de dados (v10.0).
+    Versão: 10.0 - Removida a tabela 'tipos_entidades' e a coluna 'tipo_id' das entidades principais.
     """
-    print("--- Configurando a Base de Dados (v9.8) ---")
-    create_meta_tables(cursor)
+    print("--- Configurando a Base de Dados (v10.0) ---")
+    # create_meta_tables(cursor) -- REMOVIDO
     create_core_tables(cursor)
     create_player_tables(cursor)
     create_relationship_tables(cursor)
     create_indexes(cursor)
-    populate_meta_tables(cursor)
-    print("SUCESSO: Base de dados v9.8 configurada com tabelas vazias e tipos preenchidos.")
+    # populate_meta_tables(cursor) -- REMOVIDO
+    print("SUCESSO: Base de dados v10.0 configurada com tabelas vazias.")
 
 def main():
     """
@@ -245,7 +218,7 @@ def main():
     try:
         setup_database(cursor)
         conn.commit()
-        print(f"\n--- Estrutura do Mundo (v9.8) Verificada/Criada com Sucesso ---")
+        print(f"\n--- Estrutura do Mundo (v10.0) Verificada/Criada com Sucesso ---")
         print(f"O arquivo '{config.DB_PATH_SQLITE}' está pronto para uso e seus dados serão persistidos.")
         
     except Exception as e:

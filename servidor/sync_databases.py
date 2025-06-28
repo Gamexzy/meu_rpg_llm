@@ -1,7 +1,7 @@
 import os
 import sys
 import asyncio
-# import shutil # Não precisamos mais de shutil se não vamos excluir o diretório
+import shutil # Importado para remoção de diretórios
 
 # Adiciona o diretório da raiz do projeto ao sys.path para que os módulos possam ser importados
 # Assumindo que o script sync_databases.py está em meu_rpg_llm/servidor/
@@ -22,10 +22,10 @@ class DatabaseSynchronizer:
     Orquestrador para a sincronização em lote de todos os pilares de dados (SQLite, Neo4j, ChromaDB).
     Responsabilidade: Ler todos os dados do SQLite e usá-los para construir/reconstruir
     os outros pilares, garantindo a consistência inicial.
-    Versão: 1.0.3 - Removida exclusão forçada de bancos de dados. Agora persiste dados.
+    Versão: 1.0.4 - Adicionada funcionalidade para resetar todos os bancos de dados.
     """
     def __init__(self):
-        print("--- Inicializando Sincronizador de Bases de Dados (v1.0.3) ---")
+        print("--- Inicializando Sincronizador de Bases de Dados (v1.0.4) ---")
         self.data_manager = DataManager() 
         self.chroma_manager = ChromaDBManager()
         self.neo4j_manager = Neo4jManager()
@@ -40,6 +40,7 @@ class DatabaseSynchronizer:
         
         all_data = {}
         
+        # A lista de tabelas não inclui 'tipos_entidades' após a remoção dessa funcionalidade
         tables_to_export = [
             'locais', 
             'elementos_universais', 
@@ -53,8 +54,7 @@ class DatabaseSynchronizer:
             'jogador_logs_memoria',
             'local_elementos', 
             'locais_acessos_diretos', 
-            'relacoes_entidades', 
-            'tipos_entidades'
+            'relacoes_entidades'
         ]
 
         for table_name in tables_to_export:
@@ -76,13 +76,10 @@ class DatabaseSynchronizer:
         """
         print("\n--- Iniciando Sincronização COMPLETA dos Pilares de Dados ---")
         
-        # REMOVIDO: os.system(f'python "{build_world_script_path}"')
-        # REMOVIDO: Lógica de exclusão física do diretório do ChromaDB.
-        
-        print("INFO: O esquema do SQLite e o diretório do ChromaDB não serão recriados ou limpos automaticamente por este script.")
+        print("INFO: O esquema do SQLite e o diretório do ChromaDB não serão recriados ou limpos automaticamente por este script na sincronização.")
         print("AVISO: Certifique-se de que o 'build_world.py' foi executado pelo menos uma vez para criar o esquema inicial.")
         print("AVISO: A população inicial do SQLite com dados de campanha (jogador, locais, etc.)")
-        print("AVISO: é feita pelo 'main.py' (com '_setup_initial_campaign') ou por métodos diretos do DataManager.")
+        print("AVISO: é feita pelo 'main.py' (com lógica de criação inicial) ou por métodos diretos do DataManager.")
         
         # Passo 1: Ler todos os dados do SQLite usando o DataManager
         all_sqlite_data = await self._get_all_data_from_sqlite()
@@ -93,7 +90,7 @@ class DatabaseSynchronizer:
         # então os dados existentes serão substituídos pelos dados do SQLite.
         await self.neo4j_manager.build_graph_from_data(all_sqlite_data)
         print("SUCESSO: Neo4j sincronizado.")
-        self.neo4j_manager.close()
+        # self.neo4j_manager.close() # A conexão é fechada pelo próprio manager em cada sessão
 
         # Passo 3: Constrói o ChromaDB a partir dos dados do DataManager
         print("\n--- Construindo o ChromaDB (Pilar A) ---")
@@ -104,10 +101,70 @@ class DatabaseSynchronizer:
 
         print("\n--- Sincronização COMPLETA dos Pilares de Dados CONCLUÍDA ---")
 
+    async def reset_all_databases(self):
+        """
+        Executa um reset completo de todos os bancos de dados:
+        1. Deleta o arquivo SQLite.
+        2. Deleta o diretório do ChromaDB.
+        3. Limpa o Neo4j (detaching e deletando todos os nós e relações).
+        4. Re-executa build_world.py para recriar o esquema SQLite vazio.
+        """
+        print("\n!!! ATENÇÃO: INICIANDO RESET COMPLETO DE TODOS OS BANCOS DE DADOS !!!")
+        print("!!! TODOS OS DADOS PERSISTIDOS SERÃO APAGADOS IRREVERSIVELMENTE !!!\n")
+        
+        # 1. Deletar SQLite
+        if os.path.exists(config.DB_PATH_SQLITE):
+            os.remove(config.DB_PATH_SQLITE)
+            print(f"INFO: Arquivo SQLite deletado: {config.DB_PATH_SQLITE}")
+        else:
+            print(f"INFO: Arquivo SQLite não encontrado, nada para deletar: {config.DB_PATH_SQLITE}")
+
+        # 2. Deletar ChromaDB
+        if os.path.exists(config.CHROMA_PATH):
+            try:
+                shutil.rmtree(config.CHROMA_PATH)
+                print(f"INFO: Diretório ChromaDB deletado: {config.CHROMA_PATH}")
+            except OSError as e:
+                print(f"ERRO: Falha ao deletar diretório ChromaDB {config.CHROMA_PATH}: {e}")
+        else:
+            print(f"INFO: Diretório ChromaDB não encontrado, nada para deletar: {config.CHROMA_PATH}")
+
+        # 3. Limpar Neo4j
+        print("INFO: Limpando banco de dados Neo4j...")
+        try:
+            with self.neo4j_manager.driver.session() as session:
+                session.run("MATCH (n) DETACH DELETE n")
+            print("INFO: Neo4j limpo com sucesso.")
+        except Exception as e:
+            print(f"ERRO: Falha ao limpar Neo4j: {e}")
+            # Se o Neo4j não estiver rodando ou houver erro de conexão, a limpeza pode falhar.
+            # No entanto, vamos prosseguir com a recriação do esquema SQLite.
+
+        # 4. Re-executar build_world.py para recriar o esquema SQLite vazio
+        build_script_path = os.path.join(config.BASE_DIR, 'scripts', 'build_world.py')
+        if os.path.exists(build_script_path):
+            print(f"\nINFO: Re-executando '{build_script_path}' para recriar o esquema do DB...")
+            os.system(f'python "{build_script_path}"')
+            print("INFO: Esquema SQLite recriado com sucesso.")
+        else:
+            print(f"ERRO: Script 'build_world.py' não encontrado em '{build_script_path}'. Não foi possível recriar o esquema SQLite.")
+            sys.exit(1)
+
+        print("\n--- RESET COMPLETO DE BANCOS DE DADOS CONCLUÍDO ---")
+        print("O sistema está agora em um estado de 'folha em branco'.")
+
+
 async def main():
-    """Função principal assíncrona para executar o sincronizador."""
+    """
+    Função principal assíncrona para executar o sincronizador ou resetar os bancos de dados.
+    Uso: python sync_databases.py [--reset]
+    """
     synchronizer = DatabaseSynchronizer()
-    await synchronizer.sync_all_databases()
+    
+    if "--reset" in sys.argv:
+        await synchronizer.reset_all_databases()
+    else:
+        await synchronizer.sync_all_databases()
 
 if __name__ == '__main__':
     if sys.platform == "win32":
