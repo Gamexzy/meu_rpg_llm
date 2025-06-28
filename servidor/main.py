@@ -5,15 +5,10 @@ import datetime
 import asyncio
 import aiohttp
 
-# ====================================================================
-# CONFIGURAÇÃO DE CAMINHOS DO SISTEMA (CRÍTICO PARA IMPORTAÇÕES)
-# Garante que todos os módulos em 'config', 'data' e 'servidor' sejam encontrados.
-# ====================================================================
+# Adiciona o diretório da raiz do projeto ao sys.path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, 'config')) # Adiciona 'config' ao sys.path
-sys.path.insert(0, os.path.join(PROJECT_ROOT, 'data'))   # Adiciona 'data' ao sys.path (NOVO)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, 'servidor')) # Adiciona 'servidor' ao sys.path
-sys.path.insert(0, os.path.join(PROJECT_ROOT, 'scripts')) # Adiciona 'scripts' ao sys.path para build_world.py diretamente
+sys.path.append(os.path.join(PROJECT_ROOT, 'config')) # Para importar config
+sys.path.append(os.path.join(PROJECT_ROOT, 'servidor')) # Para importar managers
 
 # Importar as configurações globais
 import config as config 
@@ -23,28 +18,27 @@ from data_manager import DataManager
 from chromadb_manager import ChromaDBManager
 from neo4j_manager import Neo4jManager # AGORA IMPORTAMOS NEO4JMANAGER
 
-# Importar função to_snake_case (NOVO)
-from entity_types_data import to_snake_case
-
-
 class AgenteMJ:
     """
-    O cérebro do Mestre de Jogo (v2.27).
+    O cérebro do Mestre de Jogo (v2.21).
     Responsável por gerir o estado do jogo e interagir com o LLM.
     AGORA ATUA COMO ORQUESTRADOR DIRETO DAS ATUALIZAÇÕES DOS PILARES (SQLite + ChromaDB + Neo4j) EM TEMPO REAL.
-    (Change: Instruções de criação inicial do mundo no prompt tornadas um checklist condicional para o LLM, versão: 2.27)
+    (Change: Neo4j Manager instanciado e chamadas para atualização em tempo real adicionadas no _chamar_llm.
+             Versão: 2.21)
     """
     def __init__(self):
         """
         Inicializa o AgenteMJ e as conexões com os gestores dos pilares.
         """
-        print("--- Agente Mestre de Jogo (MJ) v2.27 a iniciar... ---")
+        print("--- Agente Mestre de Jogo (MJ) v2.21 a iniciar... ---")
         try:
+            # DataManager AGORA É SÍNCRONO e NÃO recebe chroma_manager mais.
             self.data_manager = DataManager() 
             self.chroma_manager = ChromaDBManager()
-            self.neo4j_manager = Neo4jManager()
+            self.neo4j_manager = Neo4jManager() # INSTANCIAMOS NEO4JMANAGER AQUI
 
             print("INFO: Conexão com DataManager, ChromaDBManager e Neo4jManager estabelecida.")
+            # Verificar se o genai_client no ChromaDBManager foi inicializado
             if not self.chroma_manager.genai_initialized:
                  print("AVISO: O ChromaDBManager não foi totalmente inicializado (API Key pode estar faltando). Embeddings podem falhar.")
 
@@ -66,9 +60,12 @@ class AgenteMJ:
         """
         print("\n--- Modo 'Folha em Branco': Nenhuma Campanha Inicial será populada automaticamente. ---")
         print("    A lore e o estado do mundo emergirão das interações do jogo.")
+        # Removido todo o código de população de dados
+        # O jogo começará sem um jogador ou locais pré-definidos no DB.
+        # O LLM e a lógica do jogo precisarão criar isso dinamicamente.
 
 
-    async def obter_contexto_atual(self):
+    async def obter_contexto_atual(self): # Continua sendo async
         """
         Usa o DataManager e o ChromaDBManager para obter um snapshot completo do estado atual do jogo.
         Adaptado para um cenário de "folha em branco" onde o jogador pode não existir inicialmente.
@@ -76,17 +73,20 @@ class AgenteMJ:
         print("\n--- A obter contexto para o turno atual... ---")
         contexto = {}
         
-        JOGADOR_ID_CANONICO = config.DEFAULT_PLAYER_ID_CANONICO
+        # 1. Obter o estado completo do jogador
+        JOGADOR_ID_CANONICO = config.DEFAULT_PLAYER_ID_CANONICO # Ainda usado como o ID canônico que *deve* ser criado
         estado_jogador = self.data_manager.get_player_full_status(JOGADOR_ID_CANONICO) 
         
         if not estado_jogador:
             print(f"AVISO: Jogador '{JOGADOR_ID_CANONICO}' não encontrado. O mundo está em branco. O LLM precisará criar o jogador.")
+            # Para um sistema "folha em branco", é esperado que o jogador não exista inicialmente.
+            # Retornamos um contexto mínimo e o LLM será instruído a criar o jogador.
             return {
                 'jogador': {
                     'base': {'id_canonico': JOGADOR_ID_CANONICO, 'nome': 'Aguardando Criação'},
                     'vitals': {}, 'habilidades': [], 'conhecimentos': [], 'posses': [], 'logs_recentes': []
                 },
-                'local_atual': {'id_canonico': 'o_vazio_inicial', 'nome': 'O Vazio', 'tipo_display_name': 'Espaço', 'perfil_json': {"descricao": "Um vazio sem forma, aguardando a criação de um universo."}},
+                'local_atual': {'id_canonico': 'o_vazio_inicial', 'nome': 'O Vazio', 'tipo': 'Espaço', 'perfil_json': {"descricao": "Um vazio sem forma, aguardando a criação de um universo."}},
                 'caminho_local': [],
                 'locais_contidos': [],
                 'locais_acessos_diretos': [],
@@ -96,53 +96,49 @@ class AgenteMJ:
         
         contexto['jogador'] = estado_jogador
         
+        # 2. Obter os IDs necessários a partir do estado do jogador
         local_id_canonico = estado_jogador['base'].get('local_id_canonico')
         local_id_numerico = estado_jogador['base'].get('local_id')
 
+        # NOVO: Se o jogador existe mas não tem local (cenário inicial), tentar buscar o local padrão 'o_vazio_inicial'
         if not local_id_canonico or not local_id_numerico:
             print(f"AVISO: ID do local atual não encontrado no estado do jogador para '{JOGADOR_ID_CANONICO}'. Tentando buscar local padrão 'o_vazio_inicial'.")
             
+            # Tentar obter os detalhes do local padrão, ou usar o mock se não existir
             local_vazio_details = self.data_manager.get_entity_details_by_canonical_id('locais', 'o_vazio_inicial')
             if local_vazio_details:
                 contexto['local_atual'] = dict(local_vazio_details)
-                contexto['local_atual']['perfil_json'] = json.loads(contexto['local_atual'].get('perfil_json', '{}'))
-                if 'tipo_display_name' not in contexto['local_atual']:
-                    tipo_record = self.data_manager._get_type_details_by_id(contexto['local_atual'].get('tipo_id'))
-                    if tipo_record:
-                        contexto['local_atual']['tipo_display_name'] = tipo_record['display_name']
-                    else:
-                        contexto['local_atual']['tipo_display_name'] = 'Desconhecido'
-
-                contexto['caminho_local'] = []
+                contexto['local_atual']['perfil_json'] = json.loads(contexto['local_atual']['perfil_json'])
+                contexto['caminho_local'] = [] # O vazio não tem hierarquia
                 contexto['locais_contidos'] = []
                 contexto['locais_acessos_diretos'] = []
                 contexto['locais_vizinhos'] = []
             else:
-                contexto['local_atual'] = {'id_canonico': 'o_vazio_inicial', 'nome': 'O Vazio', 'tipo_display_name': 'Espaço', 'perfil_json': {"descricao": "Um vazio sem forma, aguardando a criação de um universo."}}
+                # Fallback para o mock se nem 'o_vazio_inicial' existe no DB
+                contexto['local_atual'] = {'id_canonico': 'o_vazio_inicial', 'nome': 'O Vazio', 'tipo': 'Espaço', 'perfil_json': {"descricao": "Um vazio sem forma, aguardando a criação de um universo."}}
                 contexto['caminho_local'] = []
                 contexto['locais_contidos'] = []
                 contexto['locais_acessos_diretos'] = []
                 contexto['locais_vizinhos'] = []
         else:
+            # 3. Obter os detalhes completos do local atual (este método no DataManager é síncrono)
             contexto['local_atual'] = self.data_manager.get_entity_details_by_canonical_id('locais', local_id_canonico)
             if not contexto['local_atual']:
                 print(f"AVISO: Detalhes do local '{local_id_canonico}' não encontrados. Usando local padrão 'O Vazio'.")
-                contexto['local_atual'] = {'id_canonico': 'o_vazio_inicial', 'nome': 'O Vazio', 'tipo_display_name': 'Espaço', 'perfil_json': {"descricao": "Um vazio sem forma, aguardando a criação de um universo."}}
+                contexto['local_atual'] = {'id_canonico': 'o_vazio_inicial', 'nome': 'O Vazio', 'tipo': 'Espaço', 'perfil_json': {"descricao": "Um vazio sem forma, aguardando a criação de um universo."}}
             else:
-                contexto['local_atual']['perfil_json'] = json.loads(contexto['local_atual'].get('perfil_json', '{}'))
-                if 'tipo_display_name' not in contexto['local_atual']:
-                    tipo_record = self.data_manager._get_type_details_by_id(contexto['local_atual'].get('tipo_id'))
-                    if tipo_record:
-                        contexto['local_atual']['tipo_display_name'] = tipo_record['display_name']
-                    else:
-                        contexto['local_atual']['tipo_display_name'] = 'Desconhecido'
+                # O perfil_json vem como string, precisamos parsear para usar
+                contexto['local_atual']['perfil_json'] = json.loads(contexto['local_atual']['perfil_json'])
 
+            # 4. Obter o resto do contexto usando o ID numérico (estes métodos no DataManager são síncronos)
             contexto['caminho_local'] = self.data_manager.get_ancestors(local_id_numerico)
             contexto['locais_contidos'] = self.data_manager.get_children(local_id_numerico)
             contexto['locais_acessos_diretos'] = self.data_manager.get_direct_accesses(local_id_numerico) 
             contexto['locais_vizinhos'] = self.data_manager.get_siblings(local_id_numerico)
         
-        query_rag = f"Descreva o local {contexto['local_atual']['nome']} (tipo: {contexto['local_atual'].get('tipo_display_name', 'Desconhecido')}) e o que há de interessante ou perigoso nele."
+        # Busca de Lore Relevante no ChromaDB (Exemplo de RAG)
+        # Se não há jogador ou local, a query de RAG será genérica ou vazia.
+        query_rag = f"Descreva o local {contexto['local_atual']['nome']} (tipo: {contexto['local_atual'].get('tipo', 'Desconhecido')}) e o que há de interessante ou perigoso nele."
         relevante_lore = await self.chroma_manager.find_relevant_lore(query_rag, n_results=3)
         contexto['lore_relevante'] = [r['document'] for r in relevante_lore]
         print(f"INFO: {len(contexto['lore_relevante'])} documentos de lore relevante obtidos via ChromaDB.")
@@ -169,7 +165,7 @@ class AgenteMJ:
         - Descrições Opcionais: Descrições de ambientes são omitidas, a menos que solicitadas.
         - Progresso Implícito: O progresso em habilidades é comunicado de maneira narrativa, não de forma técnica.
         - Imersão Total: O jogador vivencia o mundo através dos sentidos e limitações do personagem.
-        - **APÓS CADA CHAMADA DE FUNÇÃO BEM-SUCEDIDA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA** descrevendo o que aconteceu ou o que o jogador percebeu como resultado da ação. Isso é CRÍTICO para a fluidez do jogo. Se o LLM não gerar uma narrativa, o jogo parecerá estático.
+        - **Criação Inicial do Mundo**: Se o jogador não existir, você DEVE iniciar a aventura criando o jogador e seu local inicial. Você tem TOTAL LIBERDADE CRIATIVA para definir o nome do jogador, suas características, o tipo de ambiente inicial (planeta, estação, floresta, cidade, etc.) e o nome desse local. Crie IDs canônicos únicos (ex: 'pj_nome_inventado', 'local_planeta_verde'). Não há restrições de cenário; crie o que você sentir ser mais interessante para o início da história.
         """
 
         jogador_base = contexto['jogador']['base']
@@ -205,69 +201,15 @@ class AgenteMJ:
 
         # Adicionar instrução para o LLM criar o jogador se o ID canônico for o placeholder
         player_creation_instruction = ""
-        
-        # Obter os tipos necessários para a criação do jogador e do local inicial
-        player_type_id = self.data_manager._get_type_id('personagens', to_snake_case('Humano Simbionte'))
-        location_type_id = self.data_manager._get_type_id('locais', to_snake_case('Base de Pesquisa Submersa'))
-        initial_location_details = self.data_manager.get_entity_details_by_canonical_id('locais', 'ruinas_elysium_submersa')
-        
-        # =========================================================================================
-        # INSTRUÇÃO CRÍTICA PARA CRIAÇÃO DO MUNDO: CHECKLIST CONDICIONAL PARA O LLM
-        # =========================================================================================
         if jogador_base['nome'] == 'Aguardando Criação':
-            player_creation_instruction += """
-# INSTRUÇÃO CRÍTICA PARA CRIAÇÃO DO MUNDO (Prioridade Máxima):
-O jogo está começando do zero. Seu objetivo é estabelecer o ponto de partida da aventura, criando o Jogador e sua localização inicial de forma canônica no sistema. Siga esta sequência de passos **rigorosamente**.
+            player_creation_instruction = f"""
+# INSTRUÇÃO CRÍTICA PARA CRIAÇÃO DO MUNDO (Se o Jogador não existir):
+O jogo está começando do zero. Seu objetivo é estabelecer o ponto de partida da aventura.
+Você DEVE realizar as seguintes ações, usando as funções do DataManager (via Function Calling):
+1. Crie um local inicial (add_or_get_location). Dê a ele um nome, um tipo (ex: 'Planeta', 'Floresta', 'Nave Espacial', 'Cidade Subterrânea') e uma descrição em 'perfil_json_data'. Crie um 'id_canonico' único (ex: 'local_floresta_sombria').
+2. Crie o personagem do jogador (add_or_get_player) com o id_canonico '{config.DEFAULT_PLAYER_ID_CANONICO}'. Dê a ele um nome (ex: 'Gabriel', 'Elara'), um perfil completo em 'perfil_completo_data' (raça, ocupação, personalidade) e vincule-o ao 'id_canonico' do local que você acabou de criar.
+Após a criação, inicie a narrativa descrevendo o ambiente e o que o jogador (com o nome que você definiu para o personagem com ID '{config.DEFAULT_PLAYER_ID_CANONICO}') percebe.
 """
-            # PASSO 1: CRIAR O TIPO DE PERSONAGEM (SE NECESSÁRIO)
-            if player_type_id is None:
-                player_creation_instruction += f"""
-**Passo 1.1: Criar o tipo de Personagem 'Humano Simbionte'**
-Chame `add_new_entity_type`.
-* `nome_tabela`: 'personagens'
-* `nome_tipo_display`: 'Humano Simbionte'
-* `parent_tipo_display`: 'Ser' (ou 'Humano' se já existir)
-**APÓS ESTA CHAMADA, GERE UMA NARRATIVA CURTA** confirmando que o tipo de personagem foi registrado. Em seguida, o LLM deve proceder para o próximo passo (1.2 ou 2).
-"""
-            # PASSO 2: CRIAR O TIPO DE LOCAL (SE NECESSÁRIO)
-            if location_type_id is None:
-                player_creation_instruction += f"""
-**Passo 1.2: Criar o tipo de Local 'Base de Pesquisa Submersa'**
-Chame `add_new_entity_type`.
-* `nome_tabela`: 'locais'
-* `nome_tipo_display`: 'Base de Pesquisa Submersa'
-* `parent_tipo_display`: 'Construção' (ou 'Espacial' se for o caso)
-**APÓS ESTA CHAMADA, GERE UMA NARRATIVA CURTA** confirmando que o tipo de local foi registrado. Em seguida, o LLM deve proceder para o próximo passo (2 ou 3).
-"""
-            # PASSO 3: CRIAR O LOCAL INICIAL (SE NECESSÁRIO)
-            if not initial_location_details:
-                player_creation_instruction += f"""
-**Passo 2: Criar o Local Inicial do Jogador: 'Ruínas de Elysium'**
-O local inicial do jogador DEVE ter o `id_canonico` 'ruinas_elysium_submersa'. Chame `add_or_get_location`.
-* `id_canonico`: 'ruinas_elysium_submersa'
-* `nome`: 'Ruínas de Elysium'
-* `tipo_display_name`: 'Base de Pesquisa Submersa' (o tipo que você acabou de criar ou confirmou que existe).
-* `perfil_json_data`: '{{\"descricao\": \"Uma base de pesquisa dilapidada, outrora um farol de inovação, agora silenciosa e envolta pelas profundezas oceânicas.\", \"ambiente\": \"Subaquático, Profundezas Abissais\", \"status\": \"Abandonada, Danificada\"}}'
-* `parent_id_canonico`: (Opcional) 'setor_oceano_profundo'
-**APÓS ESTA CHAMADA, GERE UMA NARRATIVA CURTA** descrevendo a criação ou identificação deste local. Em seguida, o LLM deve proceder para o próximo passo (3).
-"""
-            # PASSO 4: CRIAR O PERSONAGEM DO JOGADOR
-            # Esta instrução só aparece se o local inicial já existir (seja recém-criado ou já existia)
-            if initial_location_details and jogador_base['nome'] == 'Aguardando Criação':
-                player_creation_instruction += f"""
-**Passo 3: Criar o Personagem do Jogador: 'Gabriel Oliveira'**
-Crie o personagem do jogador com o `id_canonico` '{config.DEFAULT_PLAYER_ID_CANONICO}'. Chame `add_or_get_player`.
-* `id_canonico`: '{config.DEFAULT_PLAYER_ID_CANONICO}'
-* `nome`: 'Gabriel Oliveira'
-* `local_inicial_id_canonico`: 'ruinas_elysium_submersa' (o ID do local que você acabou de criar ou confirmou que existe).
-* `perfil_completo_data`: '{{\"raca\": \"Humano Simbionte\", \"ocupacao\": \"Explorador\", \"personalidade\": \"Curioso e cauteloso\", \"historia\": \"Consumido por um simbionte tecnológico, ele acorda em um mundo novo, sentindo a conexão com tudo ao seu redor.\"}}'
-**APÓS ESTA CHAMADA, GERE UMA NARRATIVA CONCISA E ENVOLVENTE** sobre o despertar de Gabriel nas Ruínas de Elysium, integrando a ação inicial do jogador. Esta narrativa marca a **conclusão da fase de setup inicial**.
-"""
-            player_creation_instruction += """
-**ATENÇÃO:** O LLM deve executar APENAS o PRÓXIMO PASSO lógico desta lista. Não tente pular etapas ou executar funções que já foram realizadas. Se uma função retornar que algo já existe, apenas gere a narrativa confirmando isso e prossiga para o próximo passo na ordem.
-"""
-        # =========================================================================================
-
             
         prompt = f"""
 # ORDENS DO MESTRE
@@ -296,7 +238,7 @@ Você é um Mestre de Jogo de um RPG de texto. Sua função é descrever o resul
 ## LOCALIZAÇÃO
 - Caminho Hierárquico: {' -> '.join([l['nome'] for l in reversed(contexto['caminho_local'])]) if contexto['caminho_local'] else 'Nenhum'}
 - Local Atual: {local_atual['nome']} ({local_atual['id_canonico']})
-- Tipo de Local: {local_atual.get('tipo_display_name', 'Desconhecido')} 
+- Tipo de Local: {local_atual.get('tipo', 'Desconhecido')} 
 - Descrição: {local_atual['perfil_json'].get('descricao', 'Nenhuma descrição disponível.')}
 - Propriedades do Local: {json.dumps(local_atual['perfil_json'], ensure_ascii=False)}
 - Locais Contidos (Filhos): {[l['nome'] for l in contexto['locais_contidos']] or 'Nenhum'}
@@ -322,53 +264,32 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
         
         chatHistory = [{"role": "user", "parts": [{"text": prompt_formatado}]}]
         payload = {"contents": chatHistory}
+        # A chave de API será lida do config.py que, por sua vez, lê da variável de ambiente GEMINI_API_KEY.
         apiKey = config.GEMINI_API_KEY 
-        apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GENERATIVE_MODEL}:generateContent?key=${apiKey}";
+        apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GENERATIVE_MODEL}:generateContent?key={apiKey}";
         
-        # Obter a lista atual de tipos genéricos do DataManager para usar em enums nas tools.
-        # Isso ajuda o LLM a saber quais tipos base ele pode usar como 'parent_tipo_display'.
-        all_entity_types_data = self.data_manager.get_all_entities_from_table('tipos_entidades')
-        locais_base_types = [t['display_name'] for t in all_entity_types_data if t['nome_tabela'] == 'locais' and t['parent_tipo_id'] is None]
-        elementos_base_types = [t['display_name'] for t in all_entity_types_data if t['nome_tabela'] == 'elementos_universais' and t['parent_tipo_id'] is None]
-        personagens_base_types = [t['display_name'] for t in all_entity_types_data if t['nome_tabela'] == 'personagens' and t['parent_tipo_id'] is None]
-        faccoes_base_types = [t['display_name'] for t in all_entity_types_data if t['nome_tabela'] == 'faccoes' and t['parent_tipo_id'] is None]
-
-
         # Adicionar ferramentas disponíveis para Function Calling
         tools = [
-            # NOVO: add_new_entity_type para criação de tipos hierárquicos
+            # Funções do DataManager que o LLM pode chamar
             {"functionDeclarations": [
                 {
-                    "name": "add_new_entity_type",
-                    "description": "Adiciona um novo tipo de entidade ao sistema (para 'locais', 'elementos_universais', 'personagens', 'faccoes'). Use quando precisar de um tipo mais específico que não seja um dos tipos base genéricos. Retorna o nome_tipo (snake_case) do tipo adicionado/existente, ou None em caso de falha. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "nome_tabela": {"type": "string", "description": "Nome da tabela à qual o tipo pertence (ex: 'locais', 'personagens').", "enum": ["locais", "elementos_universais", "personagens", "faccoes"]},
-                            "nome_tipo_display": {"type": "string", "description": "Nome legível do novo tipo (ex: 'Planeta Aquático', 'Engenheiro Chefe')."},
-                            "parent_tipo_display": {"type": "string", "description": "Nome legível do tipo pai. DEVE ser um dos tipos genéricos base ou um tipo mais específico que já exista. Exemplos para Locais: " + ", ".join(locais_base_types) + ". Exemplos para Elementos: " + ", ".join(elementos_base_types) + ". Exemplos para Personagens: " + ", ".join(personagens_base_types) + ". Exemplos para Facções: " + ", ".join(faccoes_base_types) + ".", "nullable": True}
-                        },
-                        "required": ["nome_tabela", "nome_tipo_display"]
-                    }
-                },
-                {
                     "name": "add_or_get_location",
-                    "description": "Adiciona um novo local ao universo ou retorna o ID se já existe. Use para criar planetas, estações, salas, etc. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona um novo local ao universo ou retorna o ID se já existe. Use para criar planetas, estações, salas, etc.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "id_canonico": {"type": "string", "description": "ID canônico único do local (ex: 'estacao_alfa', 'planeta_gaia')."},
                             "nome": {"type": "string", "description": "Nome legível do local."},
-                            "tipo_display_name": {"type": "string", "description": "Nome legível do tipo do local (ex: 'Estação Espacial', 'Planeta Aquático'). DEVE ser um tipo existente ou que você criou com add_new_entity_type."},
+                            "tipo_nome": {"type": "string", "description": "Tipo do local (ex: 'Estação Espacial', 'Planeta', 'Sala'). Deve ser um tipo conhecido."},
                             "perfil_json_data": {"type": "string", "description": "Dados adicionais do local em formato JSON string (ex: '{\"descricao\": \"Um hub de comércio.\"}' ).", "nullable": True},
                             "parent_id_canonico": {"type": "string", "description": "ID canônico do local pai, se houver (ex: uma sala dentro de uma estação).", "nullable": True}
                         },
-                        "required": ["id_canonico", "nome", "tipo_display_name"]
+                        "required": ["id_canonico", "nome", "tipo_nome"]
                     }
                 },
                 {
                     "name": "add_or_get_player",
-                    "description": "Adiciona um novo jogador ao banco de dados ou retorna o ID se já existe. Use para criar o personagem principal. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona um novo jogador ao banco de dados ou retorna o ID se já existe. Use para criar o personagem principal.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -382,7 +303,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_player_vitals",
-                    "description": "Adiciona ou atualiza o status físico e emocional do jogador. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona ou atualiza o status físico e emocional do jogador.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -399,7 +320,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_player_skill",
-                    "description": "Adiciona uma nova habilidade ao jogador. Já é idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona uma nova habilidade ao jogador. Já é idempotente.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -414,7 +335,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_player_knowledge",
-                    "description": "Adiciona um novo conhecimento ao jogador. Já é idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona um novo conhecimento ao jogador. Já é idempotente.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -429,7 +350,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_or_get_player_possession",
-                    "description": "Adiciona uma nova posse ao jogador ou retorna o ID se já existe. Use para itens do inventário. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona uma nova posse ao jogador ou retorna o ID se já existe. Use para itens do inventário.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -443,7 +364,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_log_memory",
-                    "description": "Adiciona um log ou memória consolidada para o jogador. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona um log ou memória consolidada para o jogador.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -457,7 +378,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "update_player_location",
-                    "description": "Atualiza a localização atual do jogador no DB. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Atualiza a localização atual do jogador no DB.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -469,7 +390,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_direct_access_relation",
-                    "description": "Adiciona uma relação de acesso direto entre dois locais. Já é idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona uma relação de acesso direto entre dois locais. Já é idempotente.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -483,7 +404,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_universal_relation",
-                    "description": "Adiciona uma relação universal entre quaisquer duas entidades. Já é idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona uma relação universal entre quaisquer duas entidades. Já é idempotente.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -499,7 +420,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_column_to_table",
-                    "description": "Adiciona uma nova coluna a uma tabela existente. Idempotente. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona uma nova coluna a uma tabela existente. Idempotente.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -513,44 +434,44 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                 },
                 {
                     "name": "add_or_get_element_universal",
-                    "description": "Adiciona um novo elemento universal (tecnologia, magia, recurso) ou retorna o ID se já existe. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona um novo elemento universal (tecnologia, magia, recurso) ou retorna o ID se já existe.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "id_canonico": {"type": "string", "description": "ID canônico único do elemento."},
                             "nome": {"type": "string", "description": "Nome legível do elemento."},
-                            "tipo_display_name": {"type": "string", "description": "Nome legível do tipo do elemento (ex: 'Gema Arcana'). DEVE ser um tipo existente ou que você criou com add_new_entity_type."},
+                            "tipo_nome": {"type": "string", "description": "Tipo do elemento (ex: 'Tecnologia', 'Magia')."},
                             "perfil_json_data": {"type": "string", "description": "Dados adicionais do elemento em JSON string.", "nullable": True}
                         },
-                        "required": ["id_canonico", "nome", "tipo_display_name"]
+                        "required": ["id_canonico", "nome", "tipo_nome"]
                     }
                 },
                 {
                     "name": "add_or_get_personagem",
-                    "description": "Adiciona um novo personagem (NPC, monstro) ou retorna o ID se já existe. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona um novo personagem (NPC, monstro) ou retorna o ID se já existe.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "id_canonico": {"type": "string", "description": "ID canônico único do personagem."},
                             "nome": {"type": "string", "description": "Nome legível do personagem."},
-                            "tipo_display_name": {"type": "string", "description": "Nome legível do tipo do personagem (ex: 'Androide'). DEVE ser um tipo existente ou que você criou com add_new_entity_type."},
+                            "tipo_nome": {"type": "string", "description": "Tipo do personagem (ex: 'NPC', 'Monstro')."},
                             "perfil_json_data": {"type": "string", "description": "Dados adicionais do personagem em JSON string.", "nullable": True}
                         },
-                        "required": ["id_canonico", "nome", "tipo_display_name"]
+                        "required": ["id_canonico", "nome", "tipo_nome"]
                     }
                 },
                 {
                     "name": "add_or_get_faccao",
-                    "description": "Adiciona uma nova facção (reino, corporação) ou retorna o ID se já existe. APÓS ESTA CHAMADA, VOCÊ DEVE GERAR UMA NARRATIVA CURTA E CONCISA.",
+                    "description": "Adiciona uma nova facção (reino, corporação) ou retorna o ID se já existe.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "id_canonico": {"type": "string", "description": "ID canônico único da facção."},
                             "nome": {"type": "string", "description": "Nome legível da facção."},
-                            "tipo_display_name": {"type": "string", "description": "Nome legível do tipo da facção (ex: 'Conselho Galáctico'). DEVE ser um tipo existente ou que você criou com add_new_entity_type."},
+                            "tipo_nome": {"type": "string", "description": "Tipo da facção (ex: 'Reino', 'Corporação')."},
                             "perfil_json_data": {"type": "string", "description": "Dados adicionais da facção em JSON string.", "nullable": True}
                         },
-                        "required": ["id_canonico", "nome", "tipo_display_name"]
+                        "required": ["id_canonico", "nome", "tipo_nome"]
                     }
                 },
             ]}
@@ -560,7 +481,6 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
 
         # Mapeamento de funções para o AgenteMJ (para despachar chamadas de função)
         available_functions = {
-            "add_new_entity_type": self.data_manager.add_new_entity_type,
             "add_or_get_location": self.data_manager.add_or_get_location,
             "add_or_get_player": self.data_manager.add_or_get_player,
             "add_player_vitals": self.data_manager.add_player_vitals,
@@ -587,9 +507,10 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                         if "content" in candidate and "parts" in candidate["content"]:
                             parts = candidate["content"]["parts"]
                             
+                            # Lidar com chamadas de função
                             tool_calls = [part for part in parts if "functionCall" in part]
                             if tool_calls:
-                                print("\n--- CHAMADA(S) DE FUNÇÃO DETECTADA(S) ---")
+                                print("\n--- CHAMADA DE FUNÇÃO DETECTADA ---")
                                 tool_responses_parts = []
                                 for tc in tool_calls:
                                     function_call = tc["functionCall"]
@@ -601,6 +522,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                     if function_name in available_functions:
                                         func_to_call = available_functions[function_name]
                                         
+                                        # Processar argumentos JSON strings
                                         processed_args = {}
                                         for k, v in function_args.items():
                                             if isinstance(v, str) and (k.endswith('_json_data') or k == 'perfil_completo_data' or k == 'propriedades_data'):
@@ -612,6 +534,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                             else:
                                                 processed_args[k] = v
 
+                                        # Chamar a função do DataManager (SQLite)
                                         if asyncio.iscoroutinefunction(func_to_call):
                                             function_response = await func_to_call(**processed_args)
                                         else:
@@ -619,156 +542,158 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                         
                                         print(f"Resposta da função DataManager '{function_name}': {function_response}")
                                         
-                                        if function_response is not None: # Verifica se a resposta não é None (indicando falha explícita)
-                                            if function_name == "add_new_entity_type":
-                                                # Para add_new_entity_type, a atualização no Chroma/Neo4j não é direta.
-                                                # O retorno é o nome_tipo_snake_case, que é um sucesso.
-                                                pass 
-                                            else: 
-                                                table_name_map = {
-                                                    "add_or_get_location": "locais",
-                                                    "add_or_get_player": "jogador",
-                                                    "add_or_get_element_universal": "elementos_universais",
-                                                    "add_or_get_personagem": "personagens",
-                                                    "add_or_get_faccao": "faccoes",
-                                                    "add_or_get_player_possession": "jogador_posses"
-                                                }
-                                                
-                                                id_canonico_to_sync = processed_args.get("id_canonico", processed_args.get("player_canonical_id"))
-                                                table_name = table_name_map.get(function_name)
-                                                
-                                                if id_canonico_to_sync and table_name:
-                                                    entity_details = self.data_manager.get_entity_details_by_canonical_id(table_name, id_canonico_to_sync)
-                                                    if entity_details:
-                                                        # --- ORQUESTRAÇÃO CHROMADB ---
-                                                        text_content_for_chroma = ""
-                                                        metadata_for_chroma = {"id_canonico": id_canonico_to_sync, "tipo": table_name}
+                                        # --- ADICIONADO: ORQUESTRAÇÃO DO CHROMADB E NEO4J APÓS CHAMADAS DE FUNÇÃO ---
+                                        # Esta seção é responsável por manter os outros pilares sincronizados.
+                                        if function_response: # Verifica se a função do DataManager foi bem-sucedida
+                                            # Recupera os detalhes completos do DB para formatar o texto/nó
+                                            # e para garantir que o id_canonico retornado seja o correto.
+                                            
+                                            # Mapeamento para nomes de tabela SQLite
+                                            table_name_map = {
+                                                "add_or_get_location": "locais",
+                                                "add_or_get_player": "jogador",
+                                                "add_or_get_element_universal": "elementos_universais",
+                                                "add_or_get_personagem": "personagens",
+                                                "add_or_get_faccao": "faccoes",
+                                                "add_or_get_player_possession": "jogador_posses"
+                                            }
+                                            
+                                            # Obter ID canônico e nome da tabela para operações nos outros pilares
+                                            id_canonico_to_sync = processed_args.get("id_canonico", processed_args.get("player_canonical_id")) # Adapta para player_canonical_id
+                                            table_name = table_name_map.get(function_name)
+                                            
+                                            if id_canonico_to_sync and table_name:
+                                                entity_details = self.data_manager.get_entity_details_by_canonical_id(table_name, id_canonico_to_sync)
+                                                if entity_details:
+                                                    # --- ORQUESTRAÇÃO CHROMADB ---
+                                                    text_content_for_chroma = ""
+                                                    metadata_for_chroma = {"id_canonico": id_canonico_to_sync, "tipo": table_name}
 
-                                                        tipo_for_chroma = entity_details.get('tipo_display_name', table_name.capitalize())
-
-                                                        if table_name == "locais":
-                                                            desc = json.loads(entity_details.get('perfil_json', '{}')).get('descricao', 'N/A')
-                                                            text_content_for_chroma = f"Local: {entity_details.get('nome')}. Tipo: {tipo_for_chroma}. Descrição: {desc}. Propriedades: {entity_details.get('perfil_json')}"
-                                                            metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                            metadata_for_chroma["subtipo"] = tipo_for_chroma
-                                                        elif table_name == "jogador":
-                                                            profile_data = json.loads(entity_details.get('perfil_completo_json', '{}'))
-                                                            text_content_for_chroma = f"O Jogador principal: {entity_details.get('nome')} (ID: {id_canonico_to_sync}). Raça: {profile_data.get('raca', 'N/A')}. Ocupação: {profile_data.get('ocupacao', 'N/A')}. Personalidade: {profile_data.get('personalidade', 'N/A')}."
-                                                            metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                        elif table_name == "jogador_posses":
-                                                            profile_data = json.loads(entity_details.get('perfil_json', '{}'))
-                                                            text_content_for_chroma = f"Posse: {entity_details.get('item_nome')} (ID: {processed_args.get('posse_id_canonico')}) de {processed_args.get('jogador_id_canonico')}. Detalhes: {profile_data}."
-                                                            metadata_for_chroma["nome"] = entity_details.get('item_nome')
-                                                            metadata_for_chroma["jogador"] = processed_args.get('jogador_id_canonico')
-                                                        elif table_name == "elementos_universais":
-                                                            profile_data = json.loads(entity_details.get('perfil_json', '{}'))
-                                                            text_content_for_chroma = f"Elemento Universal ({tipo_for_chroma}): {entity_details.get('nome')}. Detalhes: {profile_data}."
-                                                            metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                            metadata_for_chroma["subtipo"] = tipo_for_chroma
-                                                        elif table_name == "personagens":
-                                                            profile_data = json.loads(entity_details.get('perfil_json', '{}'))
-                                                            text_content_for_chroma = f"Personagem ({tipo_for_chroma}): {entity_details.get('nome')}. Descrição: {profile_data.get('personalidade', 'N/A')}. Histórico: {profile_data.get('historico', 'N/A')}."
-                                                            metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                            metadata_for_chroma["subtipo"] = tipo_for_chroma
-                                                        elif table_name == "faccoes":
-                                                            profile_data = json.loads(entity_details.get('perfil_json', '{}'))
-                                                            text_content_for_chroma = f"Facção ({tipo_for_chroma}): {entity_details.get('nome')}. Ideologia: {profile_data.get('ideologia', 'N/A')}. Influência: {profile_data.get('influencia', 'N/A')}."
-                                                            metadata_for_chroma["nome"] = entity_details.get('nome')
-                                                            metadata_for_chroma["subtipo"] = tipo_for_chroma
-                                                        
-                                                        if text_content_for_chroma:
-                                                            await self.chroma_manager.add_or_update_lore(id_canonico_to_sync, text_content_for_chroma, metadata_for_chroma)
-                                                    else:
-                                                        print(f"AVISO: Entidade recém-criada/atualizada '{id_canonico_to_sync}' não encontrada no DataManager para ChromaDB.")
-                                                else:
-                                                    print(f"AVISO: Não foi possível mapear função '{function_name}' para adicionar ao ChromaDB.")
-
-                                                # --- ORQUESTRAÇÃO NEO4J ---
-                                                neo4j_label_map = {
-                                                    "locais": "Local",
-                                                    "jogador": "Jogador",
-                                                    "elementos_universais": "ElementoUniversal",
-                                                    "personagens": "Personagem",
-                                                    "faccoes": "Faccao",
-                                                }
-                                                
-                                                base_label = neo4j_label_map.get(table_name)
-                                                
-                                                if entity_details and base_label:
-                                                    node_properties = {
-                                                        "id_canonico": entity_details['id_canonico'],
-                                                        "nome": entity_details['nome'],
-                                                        "display_name_tipo": entity_details.get('tipo_display_name', base_label)
-                                                    }
-                                                    if entity_details.get('perfil_json'):
-                                                        try:
-                                                            node_properties.update(json.loads(entity_details['perfil_json']))
-                                                        except json.JSONDecodeError:
-                                                            node_properties['perfil_json_raw'] = entity_details['perfil_json']
-
-                                                    specific_label = entity_details.get('tipo_display_name') # Usar display_name para o rótulo específico no Neo4j
+                                                    if table_name == "locais":
+                                                        desc = json.loads(entity_details.get('perfil_json', '{}')).get('descricao', 'N/A')
+                                                        text_content_for_chroma = f"Local: {entity_details.get('nome')}. Tipo: {entity_details.get('tipo')}. Descrição: {desc}. Propriedades: {entity_details.get('perfil_json')}"
+                                                        metadata_for_chroma["nome"] = entity_details.get('nome')
+                                                        metadata_for_chroma["subtipo"] = entity_details.get('tipo')
+                                                    elif table_name == "jogador":
+                                                        profile_data = json.loads(entity_details.get('perfil_completo_json', '{}'))
+                                                        text_content_for_chroma = f"O Jogador principal: {entity_details.get('nome')} (ID: {id_canonico_to_sync}). Raça: {profile_data.get('raca', 'N/A')}. Ocupação: {profile_data.get('ocupacao', 'N/A')}. Personalidade: {profile_data.get('personalidade', 'N/A')}."
+                                                        metadata_for_chroma["nome"] = entity_details.get('nome')
+                                                    elif table_name == "jogador_posses":
+                                                        profile_data = json.loads(entity_details.get('perfil_json', '{}'))
+                                                        text_content_for_chroma = f"Posse: {entity_details.get('item_nome')} (ID: {id_canonico_to_sync}) de {processed_args.get('jogador_id_canonico')}. Detalhes: {profile_data}."
+                                                        metadata_for_chroma["nome"] = entity_details.get('item_nome')
+                                                        metadata_for_chroma["jogador"] = processed_args.get('jogador_id_canonico')
+                                                    elif table_name == "elementos_universais":
+                                                        profile_data = json.loads(entity_details.get('perfil_json', '{}'))
+                                                        text_content_for_chroma = f"Elemento Universal ({entity_details.get('tipo')}): {entity_details.get('nome')}. Detalhes: {profile_data}."
+                                                        metadata_for_chroma["nome"] = entity_details.get('nome')
+                                                        metadata_for_chroma["subtipo"] = entity_details.get('tipo')
+                                                    elif table_name == "personagens":
+                                                        profile_data = json.loads(entity_details.get('perfil_json', '{}'))
+                                                        text_content_for_chroma = f"Personagem ({entity_details.get('tipo')}): {entity_details.get('nome')}. Descrição: {profile_data.get('personalidade', 'N/A')}. Histórico: {profile_data.get('historico', 'N/A')}."
+                                                        metadata_for_chroma["nome"] = entity_details.get('nome')
+                                                        metadata_for_chroma["subtipo"] = entity_details.get('tipo')
+                                                    elif table_name == "faccoes":
+                                                        profile_data = json.loads(entity_details.get('perfil_json', '{}'))
+                                                        text_content_for_chroma = f"Facção ({entity_details.get('tipo')}): {entity_details.get('nome')}. Ideologia: {profile_data.get('ideologia', 'N/A')}. Influência: {profile_data.get('influencia', 'N/A')}."
+                                                        metadata_for_chroma["nome"] = entity_details.get('nome')
+                                                        metadata_for_chroma["subtipo"] = entity_details.get('tipo')
                                                     
-                                                    self.neo4j_manager.add_or_update_node(
-                                                        id_canonico=node_properties['id_canonico'],
-                                                        label_base=base_label,
-                                                        properties=node_properties,
-                                                        main_label=specific_label 
+                                                    if text_content_for_chroma:
+                                                        await self.chroma_manager.add_or_update_lore(id_canonico_to_sync, text_content_for_chroma, metadata_for_chroma)
+                                                else:
+                                                    print(f"AVISO: Entidade recém-criada/atualizada '{id_canonico_to_sync}' não encontrada no DataManager para ChromaDB.")
+                                            else:
+                                                print(f"AVISO: Não foi possível mapear função '{function_name}' para adicionar ao ChromaDB.")
+
+                                            # --- ORQUESTRAÇÃO NEO4J ---
+                                            # Aqui adicionamos a lógica para atualizar o Neo4j
+                                            neo4j_label_map = {
+                                                "locais": "Local",
+                                                "jogador": "Jogador",
+                                                "elementos_universais": "ElementoUniversal",
+                                                "personagens": "Personagem",
+                                                "faccoes": "Faccao",
+                                                # 'jogador_posses' não é um nó primário no Neo4j, mas suas propriedades podem ir para o jogador.
+                                            }
+                                            
+                                            base_label = neo4j_label_map.get(table_name)
+                                            
+                                            if entity_details and base_label:
+                                                node_properties = {
+                                                    "id_canonico": entity_details['id_canonico'],
+                                                    "nome": entity_details['nome'],
+                                                    "nome_tipo": entity_details.get('tipo', base_label) # Usa 'tipo' do join, ou fallback para base_label
+                                                }
+                                                if entity_details.get('perfil_json'):
+                                                    try:
+                                                        node_properties.update(json.loads(entity_details['perfil_json']))
+                                                    except json.JSONDecodeError:
+                                                        node_properties['perfil_json_raw'] = entity_details['perfil_json']
+
+                                                specific_label = entity_details.get('tipo') # Ex: 'Estação Espacial'
+                                                
+                                                # 1. Adicionar/Atualizar o nó principal
+                                                self.neo4j_manager.add_or_update_node(
+                                                    id_canonico=entity_details['id_canonico'],
+                                                    label_base=base_label,
+                                                    properties=node_properties,
+                                                    main_label=specific_label # Passa o rótulo específico
+                                                )
+                                                print(f"INFO: Nó Neo4j para '{entity_details['nome']}' ({entity_details['id_canonico']}) atualizado.")
+
+                                                # 2. Lidar com relações específicas
+                                                if function_name == "add_or_get_location" and processed_args.get("parent_id_canonico"):
+                                                    self.neo4j_manager.add_or_update_parent_child_relation(
+                                                        child_id_canonico=entity_details['id_canonico'],
+                                                        parent_id_canonico=processed_args["parent_id_canonico"]
                                                     )
-                                                    print(f"INFO: Nó Neo4j para '{entity_details['nome']}' ({entity_details['id_canonico']}) atualizado.")
-
-                                                    if function_name == "add_or_get_location" and processed_args.get("parent_id_canonico"):
-                                                        self.neo4j_manager.add_or_update_parent_child_relation(
-                                                            child_id_canonico=entity_details['id_canonico'],
-                                                            parent_id_canonico=processed_args["parent_id_canonico"]
-                                                        )
-                                                        print(f"INFO: Relação DENTRO_DE para '{entity_details['nome']}' e pai '{processed_args['parent_id_canonico']}' atualizada no Neo4j.")
-                                                    
-                                                    if function_name == "add_or_get_player":
-                                                        local_inicial_id_canonico = processed_args.get("local_inicial_id_canonico")
-                                                        if local_inicial_id_canonico:
-                                                            self.neo4j_manager.add_or_update_player_location_relation(
-                                                                player_id_canonico=entity_details['id_canonico'],
-                                                                local_id_canonico=local_inicial_id_canonico
-                                                            )
-                                                            print(f"INFO: Relação ESTA_EM para jogador '{entity_details['nome']}' e local '{local_inicial_id_canonico}' atualizada no Neo4j.")
-                                                    
-                                                    elif function_name == "update_player_location":
-                                                        player_id_canonico = processed_args.get("player_canonical_id")
-                                                        new_local_id_canonico = processed_args.get("new_local_canonical_id")
-                                                        self.neo4j_manager.add_or_update_player_location_relation(
-                                                            player_id_canonico=player_id_canonico,
-                                                            local_id_canonico=new_local_id_canonico
-                                                        )
-                                                        print(f"INFO: Relação ESTA_EM para jogador '{player_id_canonico}' e local '{new_local_id_canonico}' atualizada no Neo4j.")
-
-                                                    elif function_name == "add_direct_access_relation":
-                                                        self.neo4j_manager.add_or_update_direct_access_relation(
-                                                            origem_id_canonico=processed_args['origem_id_canonico'],
-                                                            destino_id_canonico=processed_args['destino_id_canonico'],
-                                                            tipo_acesso=processed_args.get('tipo_acesso'),
-                                                            condicoes_acesso=processed_args.get('condicoes_acesso')
-                                                        )
-                                                        print(f"INFO: Relação DA_ACESSO_A entre '{processed_args['origem_id_canonico']}' e '{processed_args['destino_id_canonico']}' atualizada no Neo4j.")
+                                                    print(f"INFO: Relação DENTRO_DE para '{entity_details['nome']}' e pai '{processed_args['parent_id_canonico']}' atualizada no Neo4j.")
                                                 
-                                                    elif function_name == "add_universal_relation":
-                                                        origem_entity_for_labels = self.data_manager.get_entity_details_by_canonical_id(processed_args['origem_tipo_tabela'], processed_args['origem_id_canonico'])
-                                                        destino_entity_for_labels = self.data_manager.get_entity_details_by_canonical_id(processed_args['destino_tipo_tabela'], processed_args['destino_id_canonico'])
-                                                        
-                                                        origem_label_neo4j = origem_entity_for_labels.get('tipo_display_name', processed_args['origem_tipo_tabela'].capitalize()) if origem_entity_for_labels and 'tipo_display_name' in origem_entity_for_labels else processed_args['origem_tipo_tabela'].capitalize()
-                                                        destino_label_neo4j = destino_entity_for_labels.get('tipo_display_name', processed_args['destino_tipo_tabela'].capitalize()) if destino_entity_for_labels and 'tipo_display_name' in destino_entity_for_labels else processed_args['destino_tipo_tabela'].capitalize()
-
-                                                        self.neo4j_manager.add_or_update_universal_relation(
-                                                            origem_id_canonico=processed_args['origem_id_canonico'],
-                                                            origem_label=origem_label_neo4j,
-                                                            tipo_relacao=processed_args['tipo_relacao'],
-                                                            destino_id_canonico=processed_args['destino_id_canonico'],
-                                                            destino_label=destino_label_neo4j,
-                                                            propriedades_data=processed_args.get('propriedades_data')
+                                                if function_name == "add_or_get_player":
+                                                    # Se o jogador foi criado/obtido, vincular ao local inicial
+                                                    local_inicial_id_canonico = processed_args.get("local_inicial_id_canonico")
+                                                    if local_inicial_id_canonico:
+                                                        self.neo4j_manager.add_or_update_player_location_relation(
+                                                            player_id_canonico=entity_details['id_canonico'],
+                                                            local_id_canonico=local_inicial_id_canonico
                                                         )
-                                                        print(f"INFO: Relação universal '{processed_args['tipo_relacao']}' atualizada no Neo4j.")
+                                                        print(f"INFO: Relação ESTA_EM para jogador '{entity_details['nome']}' e local '{local_inicial_id_canonico}' atualizada no Neo4j.")
+                                                
+                                                elif function_name == "update_player_location":
+                                                    # Se a localização do jogador foi atualizada
+                                                    player_id_canonico = processed_args.get("player_canonical_id")
+                                                    new_local_id_canonico = processed_args.get("new_local_canonical_id")
+                                                    self.neo4j_manager.add_or_update_player_location_relation(
+                                                        player_id_canonico=player_id_canonico,
+                                                        local_id_canonico=new_local_id_canonico
+                                                    )
+                                                    print(f"INFO: Relação ESTA_EM para jogador '{player_id_canonico}' e local '{new_local_id_canonico}' atualizada no Neo4j.")
 
-                                                else:
-                                                    pass # Para add_new_entity_type, não há necessidade de atualização direta no Chroma/Neo4j aqui.
+                                                elif function_name == "add_direct_access_relation":
+                                                    self.neo4j_manager.add_or_update_direct_access_relation(
+                                                        origem_id_canonico=processed_args['origem_id_canonico'],
+                                                        destino_id_canonico=processed_args['destino_id_canonico'],
+                                                        tipo_acesso=processed_args.get('tipo_acesso'),
+                                                        condicoes_acesso=processed_args.get('condicoes_acesso')
+                                                    )
+                                                    print(f"INFO: Relação DA_ACESSO_A entre '{processed_args['origem_id_canonico']}' e '{processed_args['destino_id_canonico']}' atualizada no Neo4j.")
+                                                
+                                                elif function_name == "add_universal_relation":
+                                                    self.neo4j_manager.add_or_update_universal_relation(
+                                                        origem_id_canonico=processed_args['origem_id_canonico'],
+                                                        origem_label=processed_args['origem_tipo_tabela'].capitalize(), # Usar a tabela SQLite como label base (ex: 'Personagens')
+                                                        tipo_relacao=processed_args['tipo_relacao'],
+                                                        destino_id_canonico=processed_args['destino_id_canonico'],
+                                                        destino_label=processed_args['destino_tipo_tabela'].capitalize(), # Usar a tabela SQLite como label base
+                                                        propriedades_data=processed_args.get('propriedades_data')
+                                                    )
+                                                    print(f"INFO: Relação universal '{processed_args['tipo_relacao']}' atualizada no Neo4j.")
+
+                                            else:
+                                                print(f"AVISO: Dados insuficientes para atualizar Neo4j após função '{function_name}'.")
+                                        else:
+                                            print(f"AVISO: Função DataManager '{function_name}' não retornou sucesso. Neo4j não atualizado.")
 
                                         tool_responses_parts.append({
                                             "functionResponse": {
@@ -788,54 +713,19 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                                 if response_after_tools.status == 200:
                                     final_result = await response_after_tools.json()
                                     if final_result.get("candidates"):
-                                        # Iterar sobre as partes para encontrar o texto narrativo
-                                        final_text_content = ""
-                                        for part in final_result["candidates"][0]["content"]["parts"]:
-                                            if "text" in part:
-                                                final_text_content += part["text"] + "\n" # Concatena todas as partes de texto
-                                            elif "functionCall" in part:
-                                                # Se houver outra chamada de função, o LLM a enviou em vez de narrativa.
-                                                # Neste caso, vamos retornar uma mensagem padrão para não quebrar o loop.
-                                                print(f"AVISO: LLM encadeou outra função após a primeira rodada de ferramentas: {part['functionCall']['name']}")
-                                                return "O Mestre de Jogo está processando informações e preparando a próxima etapa. Por favor, aguarde ou digite 'continue'."
-
-                                        if final_text_content.strip():
-                                            return final_text_content.strip()
-                                        else:
-                                            print(f"AVISO: Resposta final do LLM sem texto narrativo após ferramentas. Conteúdo: {final_result['candidates'][0]['content']['parts']}")
-                                            # Se não houver texto narrativo, mas a chamada de função for bem-sucedida,
-                                            # o LLM provavelmente está esperando por mais ações ou uma instrução.
-                                            # Retorne uma mensagem que indica progressão e pede a próxima ação.
-                                            return "O Mestre de Jogo registrou sua ação e as informações do mundo. Qual é o próximo passo de Gabriel?"
+                                        final_text = final_result["candidates"][0]["content"]["parts"][0]["text"]
+                                        return final_text.strip()
                                     else:
-                                        print(f"AVISO: Resposta final do LLM inválida após ferramentas (sem 'candidates'). {await response_after_tools.text()}")
+                                        print(f"AVISO: Resposta final do LLM inválida após ferramentas. {await response_after_tools.text()}")
                                         return "O Mestre parece estar em silêncio após uma ação importante..."
                                 else:
                                     response_text_after_tools = await response_after_tools.text()
                                     print(f"ERRO: Falha na API do LLM após ferramentas com status {response_after_tools.status}: {response_text_after_tools}")
                                     return "Uma interferência cósmica impede a clareza após as ações."
                             
-                            # Se não houve tool_calls na primeira resposta do LLM, espera-se texto narrativo
-                            text_content = ""
-                            for part in parts:
-                                if "text" in part:
-                                    text_content += part["text"] + "\n"
-                                elif "functionCall" in part:
-                                    # Se a resposta inicial já é uma tool call
-                                    print(f"AVISO: LLM iniciou com uma chamada de função: {part['functionCall']['name']}")
-                                    # Se a primeira resposta do LLM já é uma tool call, vamos processá-la e esperar a narrativa subsequente
-                                    # não retornamos aqui, pois queremos que o fluxo continue para processar a tool_call
-                                    # A narrativa virá na próxima rodada após as tool_responses_parts serem enviadas de volta ao LLM.
-                                    pass
-
-
-                            if text_content.strip():
-                                return text_content.strip()
-                            else:
-                                print(f"AVISO: Resposta inicial do LLM sem texto narrativo. Conteúdo: {parts}")
-                                # Se não houver texto, mas também não houver tool_calls (o que seria estranho),
-                                # podemos tentar uma nova rodada ou pedir para o usuário continuar.
-                                return "O Mestre parece estar em silêncio. Por favor, digite 'continue' ou sua próxima ação."
+                            # Se não houve chamada de função, retorna o texto direto
+                            text = parts[0]["text"]
+                            return text.strip()
                         else:
                             print(f"AVISO: Resposta do LLM inválida (sem 'content' ou 'parts'). {await response.text()}")
                             return "O Mestre parece estar em silêncio..."
@@ -853,12 +743,13 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
         except Exception as e:
             print(f"ERRO ao chamar a API do LLM: {e}")
             import traceback
-            traceback.print_exc()
+            traceback.print_exc() # Imprime o stack trace completo
             return "Uma interferência cósmica impede a clareza. A sua ação parece não ter resultado."
 
     async def executar_turno_de_jogo(self, session, acao_do_jogador=""):
         """Simula um único turno do jogo de forma assíncrona."""
         contexto = await self.obter_contexto_atual()
+        # Não precisa verificar contexto, ele sempre retorna um (mesmo que seja o "Vazio")
         
         prompt = self._formatar_prompt_para_llm(contexto, acao_do_jogador)
         
@@ -873,8 +764,10 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
 async def main():
     """Função principal assíncrona para executar o servidor do jogo."""
     # NOVO: Caminho para o build_world.py ajustado para a nova estrutura de pastas
-    build_script_path = os.path.join(PROJECT_ROOT, 'scripts', 'build_world.py') 
+    build_script_path = os.path.join(config.BASE_DIR, 'scripts', 'build_world.py') # Usa config.BASE_DIR
     
+    # 1. Executar build_world.py para garantir o esquema vazio
+    # build_world.py agora é idempotente e não apaga o DB.
     if os.path.exists(build_script_path):
         print(f"Executando '{build_script_path}' para criar/verificar o esquema do DB...")
         os.system(f'python "{build_script_path}"')
@@ -885,10 +778,14 @@ async def main():
     agente_mj = AgenteMJ()
 
     async with aiohttp.ClientSession() as session:
+        # 2. REMOVIDA A CHAMADA AUTOMÁTICA DE _setup_initial_campaign.
+        # Agora o mundo começa realmente em branco.
         print("\n--- INICIANDO JOGO: O MUNDO É UMA FOLHA EM BRANCO. ---")
         print("    O LLM e suas ações definirão o início da campanha.")
 
+        # Loop principal do jogo
         while True:
+            # Pega a ação do jogador
             acao_do_jogador = input("\nSua ação, Gabriel: ")
             if acao_do_jogador.lower() == 'sair':
                 print("Encerrando o jogo...")
