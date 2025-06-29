@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Carrega as variáveis de ambiente do arquivo .env
 
 # --- Configuração de Caminhos Globais ---
 # A BASE_DIR aponta para a raiz do projeto (meu_rpg_llm)
@@ -29,6 +32,9 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 # Modelo de Geração de Conteúdo (LLM principal)
 GENERATIVE_MODEL = "gemini-2.0-flash" 
 
+# NOVO: Modelo de Geração para Agentes Especializados (SQLite, ChromaDB, Neo4j Agents)
+AGENT_GENERATIVE_MODEL = "gemini-2.0-flash-lite"
+
 # Modelo de Embedding
 EMBEDDING_MODEL = "all-MiniLM-L6-v2" # Ou "text-embedding-004" se preferir o estável
 
@@ -37,7 +43,7 @@ DEFAULT_PLAYER_ID_CANONICO = 'pj_gabriel_oliveira'
 DEFAULT_INITIAL_LOCATION_ID_CANONICO = 'estacao_base_alfa'
 
 # Versão do Arquivo de Configuração
-CONFIG_VERSION = "1.0.0"
+CONFIG_VERSION = "1.0.1" # Atualizado para refletir a nova configuração de modelos
 
 # Exemplo de como você pode imprimir as configurações para depuração
 def print_config_summary():
@@ -51,7 +57,8 @@ def print_config_summary():
     print(f"Neo4j User: {NEO4J_USER}")
     print(f"Neo4j Password: {'********' if NEO4J_PASSWORD else 'N/A (Vazio)'}")
     print(f"GEMINI_API_KEY: {'********' if GEMINI_API_KEY else 'N/A (Vazio/Não Definida)'}")
-    print(f"Modelo Generativo: {GENERATIVE_MODEL}")
+    print(f"Modelo Generativo (Principal): {GENERATIVE_MODEL}")
+    print(f"Modelo Generativo (Agentes): {AGENT_GENERATIVE_MODEL}") # Novo
     print(f"Modelo de Embedding: {EMBEDDING_MODEL}")
     print("---------------------------------\n")
 

@@ -11,13 +11,14 @@ import config as config
 class SQLiteAgent:
     """
     Agente de IA especializado em estruturar informações para o banco de dados SQLite.
-    (Versão: 1.0.1)
+    (Versão: 1.2.0)
     Responsabilidade: Gerar o prompt e as declarações de ferramentas para que um LLM
     possa analisar a narrativa e criar/atualizar entidades e relações no SQLite.
+    (Change: Adicionadas diretrizes mais estritas para evitar a criação de locais duplicados.)
     """
 
     def __init__(self):
-        print("INFO: SQLiteAgent inicializado (v1.0.1).")
+        print("INFO: SQLiteAgent inicializado (v1.2.0).")
 
     def format_prompt(self, narrative_mj, contexto):
         """
@@ -40,23 +41,18 @@ class SQLiteAgent:
 
         return f"""
         # INSTRUÇÃO PARA AGENTE DE ESTRUTURAÇÃO DE DADOS (SQLite AI)
-        Você é um agente de inteligência artificial especializado em extrair informações factuais de narrativas de RPG e convertê-las em chamadas de função para um banco de dados SQLite. Sua tarefa é analisar a narrativa do Mestre de Jogo e o contexto atual do mundo para identificar NOVAS entidades (locais, personagens, elementos universais, facções), suas propriedades e as relações entre elas, ou ATUALIZAR dados existentes.
+        Você é um agente de inteligência artificial especializado em extrair informações factuais de narrativas de RPG e convertê-las em chamadas de função para um banco de dados SQLite. Sua tarefa é analisar a narrativa do Mestre de Jogo e o contexto atual do mundo para identificar NOVAS entidades (locais, personagens, elementos), suas propriedades e as relações entre elas, ou ATUALIZAR dados existentes.
 
-        **Seu objetivo principal é GARANTIR A CONSISTÊNCIA E O ENRIQUECIMENTO DO BANCO DE DADOS factual (SQLite).**
+        **Seu objetivo principal é ENRIQUECER o banco de dados factual (SQLite), mantendo a sua CONSISTÊNCIA.**
 
-        **DIRETRIZES:**
-        1.  **Prioridade**: Foque na extração de informações CONCRETAS e CANÔNICAS. Não adicione suposições ou detalhes vagos.
-        2.  **Idempotência**: As funções que você chamará são idempotentes. Isso significa que, se uma entidade/relação já existe com o `id_canonico` fornecido, ela será atualizada ou ignorada (sem criar duplicatas). Sinta-se à vontade para chamar funções para entidades que você acha que podem existir.
-        3.  **IDs Canônicos**: SEMPRE crie `id_canonico` únicos para novas entidades. Use o formato `entidade_nome_descritivo` (ex: `estacao_lazarus`, `personagem_elara`, `item_kit_medico`).
-        4.  **Tipos (Parâmetro 'tipo')**: Para `locais`, `elementos_universais`, `personagens` e `faccoes`, o parâmetro `tipo` é uma **STRING LIVRE**. Descreva o tipo da entidade da forma mais precisa e útil narrativamente (ex: 'Estação Espacial Decadente', 'Mercenário Veterano', 'Artefato Antigo de Energia').
-        5.  **perfil_json_data**: Use este campo para detalhes adicionais da entidade que não se encaixam em parâmetros diretos, mas que são importantes para a lore (ex: {{"idade": 30, "historico": "Ex-soldado"}}).
-        6.  **Relações Universais (`add_universal_relation`)**: Identifique conexões significativas entre quaisquer duas entidades. O `origem_tipo_tabela` e `destino_tipo_tabela` devem ser os nomes das tabelas SQLite (`locais`, `personagens`, `elementos_universais`, `faccoes`, `jogador`). O `tipo_relacao` é uma STRING LIVRE (ex: 'ALIADO_A', 'CONTROLA', 'POSSUI_TECNOLOGIA', 'INTERAGE_COM').
-        7.  **add_player_vitals, add_player_skill, add_player_knowledge, add_or_get_player_possession**: Use estas funções para atualizar o estado do jogador com base na narrativa, se houver informações relevantes (ex: jogador ficou com fome, ganhou uma nova habilidade, encontrou um item).
-        8.  **update_player_location**: Use esta função se a narrativa indicar que o jogador MUDOU de local.
-        9.  **add_direct_access_relation**: Use esta função se a narrativa indicar uma nova conexão direta entre dois locais.
-        10. **add_column_to_table**: Use APENAS se uma nova propriedade CRUCIAL (ex: um novo sistema de combate) não puder ser armazenada em `perfil_json`. É uma exceção, não a regra.
-        11. **Não adicione Logs do Jogador (`add_log_memory`)**: O sistema já gerencia os logs do jogador. Você não precisa chamar `add_log_memory`.
-        12. **Responda SOMENTE com chamadas de função (`tool_code`) ou um texto vazio se não houver nada a ser adicionado/atualizado.**
+        **DIRETRIZES CRÍTICAS:**
+        1.  **SEJA CONSERVADOR AO CRIAR LOCAIS (REGRA DE OURO):** Antes de criar um novo local com `add_or_get_location`, verifique o contexto, especialmente `local_atual`. Se a narrativa descreve o ambiente onde o jogador já está (ex: "ele estava cercado por escombros") e o contexto mostra que o jogador está em "Base de Pesquisa em Ruínas", você deve entender que se trata do **mesmo lugar**. **NÃO CRIE UM NOVO LOCAL DUPLICADO**. O seu trabalho é enriquecer a descrição do local existente, não criar um novo. Apenas crie um novo local se a narrativa indicar um movimento **explícito** para uma área diferente e desconhecida.
+        2.  **Prioridade em Atualizar**: Se a narrativa adiciona detalhes a uma entidade existente (um novo aspecto da personalidade de um NPC, uma nova descrição de um local), o ideal é que essa informação seja atualizada no `perfil_json` da entidade. No entanto, como as suas ferramentas atuais são `add_or_get`, o mais importante é **EVITAR criar uma duplicata**.
+        3.  **IDs Canônicos Únicos**: Ao criar uma entidade GENUINAMENTE nova, SEMPRE crie um `id_canonico` único e descritivo. Use o formato `entidade_nome_descritivo` (ex: `estacao_lazarus`, `personagem_elara`, `item_kit_medico`).
+        4.  **Tipos como Strings Livres**: Para `locais`, `elementos_universais`, `personagens` e `faccoes`, o parâmetro `tipo` é uma **STRING LIVRE**. Descreva o tipo da forma mais precisa possível (ex: 'Estação Espacial Decadente', 'Mercenário Veterano').
+        5.  **LIDANDO COM DESTINOS DESCONHECIDOS:** Se a narrativa sugere uma passagem para uma área *genuinamente nova e não vista* (ex: "um buraco escuro na parede leva para fora da sala"), aí sim você DEVE criar um novo local para representar essa incerteza. Chame `add_or_get_location` com um nome vago mas descritivo (ex: 'Corredor Sombrio') e um `id_canonico` único (ex: `local_incerto_buraco_cela_01`).
+        6.  **Não adicione Logs do Jogador**: O sistema já gerencia os logs do jogador. Não chame `add_log_memory`.
+        7.  **Responda SOMENTE com chamadas de função (`tool_code`)**: Se não houver nada a ser adicionado/atualizado, retorne uma resposta vazia.
 
         **Contexto Atual do Jogo (Para Referência):**
         - Jogador: {json.dumps(jogador_info_simples, ensure_ascii=False)}
@@ -65,7 +61,7 @@ class SQLiteAgent:
 
         **Narrativa do Mestre de Jogo para Análise:**
         \"\"\"
-        {narrativa_mj}
+        {narrative_mj}
         \"\"\"
 
         **Sua Análise e Chamadas de Função:**

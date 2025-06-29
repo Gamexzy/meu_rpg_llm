@@ -21,8 +21,7 @@ class ChromaDBManager:
     """
     API dedicada para interagir com o Pilar A (Base de Dados Vetorial - ChromaDB).
     Responsável por armazenar e buscar embeddings para a lore do jogo.
-    Versão: 1.4.1 - Adaptado para a remoção da tabela 'tipos_entidades'.
-                   O tipo das entidades agora é uma string direta.
+    Versão: 1.4.2 - Corrigido o nome do parâmetro e a lógica em add_or_update_lore.
     """
     def __init__(self, chroma_path=config.CHROMA_PATH):
         """Initializes the manager and the connection to ChromaDB."""
@@ -222,33 +221,49 @@ class ChromaDBManager:
 
         print("\nSUCCESS: ChromaDB collection populated with lore embeddings.")
 
-    async def add_or_update_lore(self, id_canonico_principal, text_content, metadata):
+    async def add_or_update_lore(self, id_canonico, text_content, metadata):
         """
-        Adds or updates a lore document in ChromaDB.
-        Used for dynamic canonization of new lore.
-        id_canonico_principal: A unique canonical ID for the lore (usually the entity's canonical_id).
-        metadata: Should now include 'subtipo' with the entity's direct 'tipo' string.
+        Adiciona ou atualiza um documento de lore no ChromaDB.
+        Usado para canonização dinâmica de nova lore.
+        id_canonico: Um ID canônico único para o fragmento de lore (ex: 'estacao_lazarus_descricao_visual').
+        metadata: Um dicionário de metadados.
         """
-        # The doc_id should be unique and consistent for updates
-        # Using metadata.get('tipo', 'unknown') and id_canonico_principal
-        doc_id = f"{metadata.get('tipo', 'unknown')}_{id_canonico_principal}"
+        doc_id = id_canonico  # O ID canônico do lore é o ID do documento
         
-        print(f"INFO: Adding/Updating lore in ChromaDB for '{doc_id}'...")
+        print(f"INFO: Adicionando/Atualizando lore no ChromaDB para '{doc_id}'...")
+
+        # Garante que os metadados sejam um dicionário
+        meta_dict = {}
+        if isinstance(metadata, str):
+            try:
+                meta_dict = json.loads(metadata)
+            except json.JSONDecodeError:
+                print(f"ERRO: Metadados para o lore '{doc_id}' não é um JSON válido. Abortando adição.")
+                return False
+        elif isinstance(metadata, dict):
+            meta_dict = metadata
+        else:
+            print(f"AVISO: Tipo de metadados inesperado ({type(metadata)}) para o lore '{doc_id}'.")
+
         embedding = await self._get_embedding(text_content)
         
         if embedding:
             try:
-                self.collection.add(
+                # O método 'upsert' é mais explícito para adicionar ou atualizar.
+                self.collection.upsert(
                     embeddings=[embedding],
                     documents=[text_content],
-                    metadatas=[metadata],
+                    metadatas=[meta_dict],
                     ids=[doc_id]
                 )
-                print(f"INFO: Lore '{doc_id}' added/updated in ChromaDB.")
+                print(f"INFO: Lore '{doc_id}' adicionado/atualizado no ChromaDB.")
+                return True
             except Exception as e:
-                print(f"ERROR adding/updating lore '{doc_id}' in ChromaDB: {e}")
+                print(f"ERRO ao adicionar/atualizar lore '{doc_id}' no ChromaDB: {e}")
+                return False
         else:
-            print(f"WARNING: Could not generate embedding for '{doc_id}'. Lore not added.")
+            print(f"AVISO: Não foi possível gerar embedding para '{doc_id}'. Lore não adicionado.")
+            return False
 
 
     async def find_relevant_lore(self, query_text, n_results=5):

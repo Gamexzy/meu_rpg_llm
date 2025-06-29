@@ -22,13 +22,26 @@ class DatabaseSynchronizer:
     Orquestrador para a sincronização em lote de todos os pilares de dados (SQLite, Neo4j, ChromaDB).
     Responsabilidade: Ler todos os dados do SQLite e usá-los para construir/reconstruir
     os outros pilares, garantindo a consistência inicial.
-    Versão: 1.0.4 - Adicionada funcionalidade para resetar todos os bancos de dados.
+    Versão: 1.0.5 - Refatorada a inicialização dos managers para evitar bloqueios de arquivo durante o reset.
     """
     def __init__(self):
-        print("--- Inicializando Sincronizador de Bases de Dados (v1.0.4) ---")
-        self.data_manager = DataManager() 
-        self.chroma_manager = ChromaDBManager()
-        self.neo4j_manager = Neo4jManager()
+        """
+        Inicializa o sincronizador. Os managers são inicializados como None
+        e serão criados sob demanda para evitar bloqueios de arquivo desnecessários.
+        """
+        print("--- Inicializando Sincronizador de Bases de Dados (v1.0.5) ---")
+        self.data_manager = None
+        self.chroma_manager = None
+        self.neo4j_manager = None
+
+    def _initialize_managers(self):
+        """Inicializa os gestores de banco de dados quando necessário."""
+        if self.data_manager is None:
+            self.data_manager = DataManager()
+        if self.chroma_manager is None:
+            self.chroma_manager = ChromaDBManager()
+        if self.neo4j_manager is None:
+            self.neo4j_manager = Neo4jManager()
         print("INFO: Gestores de pilares inicializados.")
 
     async def _get_all_data_from_sqlite(self):
@@ -81,6 +94,9 @@ class DatabaseSynchronizer:
         print("AVISO: A população inicial do SQLite com dados de campanha (jogador, locais, etc.)")
         print("AVISO: é feita pelo 'main.py' (com lógica de criação inicial) ou por métodos diretos do DataManager.")
         
+        # Garante que todos os managers estão prontos para a sincronização
+        self._initialize_managers()
+        
         # Passo 1: Ler todos os dados do SQLite usando o DataManager
         all_sqlite_data = await self._get_all_data_from_sqlite()
 
@@ -111,7 +127,7 @@ class DatabaseSynchronizer:
         """
         print("\n!!! ATENÇÃO: INICIANDO RESET COMPLETO DE TODOS OS BANCOS DE DADOS !!!")
         print("!!! TODOS OS DADOS PERSISTIDOS SERÃO APAGADOS IRREVERSIVELMENTE !!!\n")
-        
+
         # 1. Deletar SQLite
         if os.path.exists(config.DB_PATH_SQLITE):
             os.remove(config.DB_PATH_SQLITE)
@@ -132,6 +148,11 @@ class DatabaseSynchronizer:
         # 3. Limpar Neo4j
         print("INFO: Limpando banco de dados Neo4j...")
         try:
+            # Inicializa o Neo4jManager apenas quando necessário para esta operação.
+            # Isso evita a inicialização (e bloqueio de arquivos) do ChromaDBManager.
+            if self.neo4j_manager is None:
+                self.neo4j_manager = Neo4jManager()
+
             with self.neo4j_manager.driver.session() as session:
                 session.run("MATCH (n) DETACH DELETE n")
             print("INFO: Neo4j limpo com sucesso.")

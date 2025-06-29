@@ -1,0 +1,35 @@
+# Arquivo de segredos e variáveis de ambiente
+# NUNCA envie este arquivo para o repositório!
+.env
+
+# Dados gerados em tempo de execução (Bancos de dados, etc.)
+# Conforme definido em config.py
+dados_em_producao/
+
+# Arquivos de cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Pastas de ambiente virtual
+.venv/
+venv/
+venv_rpg/
+
+# Arquivos de configuração de IDEs e editores
+.vscode/
+.idea/
+
+# Arquivos de log
+*.log
+logs/
+
+# Artefatos de build e distribuição
+build/
+dist/
+*.egg-info/
+
+# Relatórios de testes e cobertura
+.coverage
+htmlcov/
