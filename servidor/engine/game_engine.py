@@ -10,7 +10,7 @@ from agents.neo4j_agent import Neo4jAgent
 class GameEngine:
     """
     Motor principal do jogo. Orquestra cada turno.
-    Versão: 1.2.0 - Agentes de dados agora são chamados em modo 'single_shot' e em paralelo.
+    Versão: 1.0.0
     """
     def __init__(self, context_builder: ContextBuilder, llm_client: LLMClient):
         self.context_builder = context_builder
@@ -27,7 +27,6 @@ class GameEngine:
         
         print("\033[1;36m--- Mestre de Jogo está a pensar... ---\033[0m")
         prompt_narrativa = self.mj_agent.format_prompt(context, player_action)
-        # O MJ pode precisar de múltiplas chamadas para criar o mundo, então single_shot=False (padrão).
         narrative, _ = await self.llm_client.call(
             config.GENERATIVE_MODEL, prompt_narrativa, self.mj_agent.get_tool_declarations()
         )
@@ -40,12 +39,10 @@ class GameEngine:
 
         print("\n\033[1;36m--- Agentes de IA estão a analisar a narrativa para atualizar o mundo... ---\033[0m")
         
-        # Os agentes de dados são chamados em modo 'single_shot' para processar tudo de uma vez.
-        # Eles são executados em paralelo para maior eficiência.
         analysis_tasks = [
-            self.llm_client.call(config.AGENT_GENERATIVE_MODEL, self.sqlite_agent.format_prompt(narrative, context), self.sqlite_agent.get_tool_declarations(), single_shot=True),
-            self.llm_client.call(config.AGENT_GENERATIVE_MODEL, self.chromadb_agent.format_prompt(narrative, context), self.chromadb_agent.get_tool_declarations(), single_shot=True),
-            self.llm_client.call(config.AGENT_GENERATIVE_MODEL, self.neo4j_agent.format_prompt(narrative, context), self.neo4j_agent.get_tool_declarations(), single_shot=True),
+            self.llm_client.call(config.AGENT_GENERATIVE_MODEL, self.sqlite_agent.format_prompt(narrative, context), self.sqlite_agent.get_tool_declarations()),
+            self.llm_client.call(config.AGENT_GENERATIVE_MODEL, self.chromadb_agent.format_prompt(narrative, context), self.chromadb_agent.get_tool_declarations()),
+            self.llm_client.call(config.AGENT_GENERATIVE_MODEL, self.neo4j_agent.format_prompt(narrative, context), self.neo4j_agent.get_tool_declarations()),
         ]
         await asyncio.gather(*analysis_tasks)
         

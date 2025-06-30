@@ -5,11 +5,11 @@ from config import config
 class SQLiteAgent:
     """
     Agente de IA especializado em estruturar informações para o banco de dados SQLite.
-    Versão: 1.5.0 - Prompt refinado para enfatizar a resposta em lote único.
+    Versão: 1.4.0 - O agente agora é instruído a realizar até 5 operações em lote por turno.
     """
 
     def __init__(self):
-        print("INFO: SQLiteAgent (Disparo Único) inicializado (v1.5.0).")
+        print("INFO: SQLiteAgent (Processador em Lote) inicializado (v1.4.0).")
 
     def format_prompt(self, narrative_mj, contexto):
         """
@@ -32,29 +32,34 @@ class SQLiteAgent:
         # INSTRUÇÃO PARA AGENTE DE ESTRUTURAÇÃO DE DADOS (SQLite AI)
         Você é um agente de IA que processa narrativas de RPG e as converte em chamadas de função para um banco de dados SQLite.
 
-        **TAREFA CRÍTICA: RESPOSTA ÚNICA E COMPLETA**
-        Analise a narrativa fornecida e identifique **TODAS** as novas entidades (locais, personagens, itens) ou atualizações necessárias. Você deve retornar **UMA LISTA COM TODAS AS CHAMADAS DE FUNÇÃO `tool_code` necessárias EM UMA ÚNICA RESPOSTA**.
+        **TAREFA PRINCIPAL: PROCESSAMENTO EM LOTE**
+        Analise a narrativa fornecida e identifique **ATÉ {config.MAX_AGENT_TOOL_CALLS} NOVAS entidades ou atualizações** que precisam ser salvas. Você deve fazer **TODAS as chamadas de função necessárias em uma única resposta**.
 
         **DIRETRIZES CRÍTICAS:**
-        1.  **SEJA CONSERVADOR AO CRIAR LOCAIS:** Não crie locais duplicados ou triviais (como "área rochosa"). Crie um novo local apenas se for uma área distinta e com propósito (ex: "Caverna Escondida", "Laboratório Secreto").
-        2.  **IDs Canônicos Únicos**: Ao criar uma entidade GENUINAMENTE nova, SEMPRE crie um `id_canonico` único e descritivo.
-        3.  **Responda APENAS com a lista de chamadas de função**: Se não houver nada a ser adicionado/atualizado, retorne uma resposta vazia.
+        1.  **SEJA CONSERVADOR AO CRIAR LOCAIS (REGRA DE OURO):**
+            * **NÃO CRIE DUPLICATAS:** Se a narrativa descreve o ambiente onde o jogador já está, NÃO crie um novo local.
+            * **EVITE SUB-LOCAIS TRIVIAIS:** Não crie um novo local para cada detalhe geográfico (ex: "Área Rochosa"). Crie um novo local **apenas** se for uma área **distinta e com propósito** (ex: "Caverna Escondida").
+        2.  **IDs Canônicos Únicos**: Ao criar uma entidade GENUINAMENTE nova, SEMPRE crie um `id_canonico` único e descritivo (ex: `caverna_cristalina_01`, `personagem_elara`).
+        3.  **Tipos como Strings Livres**: O parâmetro `tipo` é uma STRING LIVRE. Descreva o tipo da forma mais precisa possível (ex: 'Planeta Cristalino', 'Mercenário Veterano').
+        4.  **Responda SOMENTE com chamadas de função**: Se não houver nada a ser adicionado/atualizado, retorne uma resposta vazia.
 
         **Contexto Atual do Jogo (Para Referência):**
         - Jogador: {json.dumps(jogador_info_simples, ensure_ascii=False)}
         - Local Atual: {json.dumps(local_info_simples, ensure_ascii=False)}
+        - Momento Atual: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
         **Narrativa do Mestre de Jogo para Análise:**
         \"\"\"
         {narrative_mj}
         \"\"\"
 
-        **Sua Análise e Lista Completa de Chamadas de Função:**
+        **Sua Análise e Chamadas de Função (Até {config.MAX_AGENT_TOOL_CALLS} chamadas):**
         """
 
     def get_tool_declarations(self):
         """
-        Retorna as declarações de ferramentas que a IA do SQLite pode chamar.
+        Retorna as declarações de ferramentas (funções do DataManager)
+        que a IA do SQLite pode chamar.
         """
         return [
             {"functionDeclarations": [

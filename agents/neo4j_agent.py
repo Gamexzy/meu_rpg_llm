@@ -5,11 +5,11 @@ from config import config
 class Neo4jAgent:
     """
     Agente de IA especializado em gerenciar as relações e a estrutura de grafo (Neo4j).
-    Versão: 1.4.0 - Prompt refinado para enfatizar a resposta em lote único.
+    Versão: 1.3.0 - O agente agora é instruído a criar até 5 relações em lote por turno.
     """
 
     def __init__(self):
-        print("INFO: Neo4jAgent (Disparo Único) inicializado (v1.4.0).")
+        print("INFO: Neo4jAgent (Processador em Lote) inicializado (v1.3.0).")
 
     def format_prompt(self, narrative_mj, contexto):
         """
@@ -26,29 +26,37 @@ class Neo4jAgent:
             'nome': contexto['local_atual']['nome'],
             'tipo': contexto['local_atual']['tipo']
         }
-        
+        locais_contidos_simples = [{'id_canonico': l['id_canonico'], 'nome': l['nome'], 'tipo': l['tipo']} for l in contexto.get('locais_contidos', [])]
+        locais_acessos_diretos_simples = [{'id_canonico': a['id_canonico'], 'nome': a['nome'], 'tipo': a['tipo'], 'tipo_acesso': a.get('tipo_acesso')} for a in contexto.get('locais_acessos_diretos', [])]
+        locais_vizinhos_simples = [{'id_canonico': l['id_canonico'], 'nome': l['nome'], 'tipo': l['tipo']} for l in contexto.get('locais_vizinhos', [])]
+
         return f"""
         # INSTRUÇÃO PARA AGENTE DE GRAFO DE DADOS (Neo4j AI)
         Você é um agente de IA que analisa narrativas de RPG para mapear as relações em um grafo de dados (Neo4j).
 
-        **TAREFA CRÍTICA: RESPOSTA ÚNICA E COMPLETA**
-        Sua tarefa é identificar **TODAS as NOVAS relações** (hierárquicas, de acesso, universais) entre as entidades mencionadas na narrativa. Você deve retornar **UMA LISTA COM TODAS AS CHAMADAS DE FUNÇÃO `tool_code` necessárias EM UMA ÚNICA RESPOSTA**.
+        **TAREFA PRINCIPAL: PROCESSAMENTO EM LOTE**
+        Sua tarefa é identificar **ATÉ {config.MAX_AGENT_TOOL_CALLS} NOVAS relações** (hierárquicas, de acesso, universais) entre as entidades e fazer **TODAS as chamadas de função necessárias em uma única resposta**.
 
         **DIRETRIZES CRÍTICAS:**
-        1.  **NÃO INVENTE MOVIMENTO:** A localização do jogador no contexto é a verdade absoluta. SÓ chame `update_player_location` se a narrativa descrever um movimento **explícito e inequívoco**.
-        2.  **FOCO EM MAPEAMENTO:** Sua responsabilidade é criar o mapa de relações (`DENTRO_DE`, `DA_ACESSO_A`, etc.) entre as entidades que o `Agente SQLite` já criou. Assuma que os nós já existem.
-        3.  **Responda APENAS com a lista de chamadas de função**: Se não houver novas relações para criar, retorne uma resposta vazia.
+        1.  **REGRA DE OURO - NÃO INVENTE MOVIMENTO:** A localização do jogador no contexto é a verdade absoluta. SÓ chame `update_player_location` se a narrativa descrever um movimento **explícito e inequívoco**.
+        2.  **FOCO EM MAPEAMENTO:** Sua principal responsabilidade é criar o mapa de relações (`DENTRO_DE`, `DA_ACESSO_A`, etc.) entre as entidades que o `Agente SQLite` já criou. Você é um cartógrafo.
+        3.  **HIERARQUIA DE AGENTES:** O `Agente SQLite` cria os "nós". Você desenha as "arestas" entre eles. Assuma que os nós já existem.
+        4.  **SÓ RESPONDA COM CHAMADAS DE FUNÇÃO:** Se a narrativa não fornecer informações claras para criar ou atualizar uma relação, não responda nada.
 
         **Contexto Atual do Jogo (Para Referência - Entidades Existentes):**
         - Jogador Principal: {json.dumps(jogador_info_simples, ensure_ascii=False)}
         - Local Atual: {json.dumps(local_atual_info_simples, ensure_ascii=False)}
+        - Locais Contidos no Local Atual: {json.dumps(locais_contidos_simples, ensure_ascii=False)}
+        - Acessos Diretos do Local Atual: {json.dumps(locais_acessos_diretos_simples, ensure_ascii=False)}
+        - Locais Vizinhos (compartilhando pai): {json.dumps(locais_vizinhos_simples, ensure_ascii=False)}
+        - Momento Atual: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
         **Narrativa do Mestre de Jogo para Análise:**
         \"\"\"
         {narrative_mj}
         \"\"\"
 
-        **Sua Análise e Lista Completa de Chamadas de Função:**
+        **Sua Análise e Chamadas de Função (`tool_code`, até {config.MAX_AGENT_TOOL_CALLS} chamadas):**
         """
 
     def get_tool_declarations(self):
