@@ -8,8 +8,8 @@ from config import config
 
 class DataManager:
     """
-    API do Mundo (v5.18) - A única camada que interage DIRETAMENTE com a base de dados SQLite.
-    (Change: get_player_full_status agora busca o jogador dinamicamente se nenhum ID for fornecido.)
+    API do Mundo (v5.19) - A única camada que interage DIRETAMENTE com a base de dados SQLite.
+    (Change: Adicionada a função 'add_log_memory' para registrar logs e memórias do jogador.)
     """
 
     def __init__(self, db_path=config.DB_PATH_SQLITE, supress_success_message=False):
@@ -22,7 +22,7 @@ class DataManager:
             raise FileNotFoundError(f"A base de dados não foi encontrada em '{self.db_path}'. "
                                     "Por favor, execute o script 'scripts/build_world.py' primeiro para criar o esquema vazio.")
         if not supress_success_message:
-            print(f"DataManager (v5.18) conectado com sucesso a: {self.db_path}")
+            print(f"DataManager (v5.19) conectado com sucesso a: {self.db_path}")
 
     def _get_connection(self):
         """Retorna uma nova conexão com a base de dados com Row Factory."""
@@ -269,8 +269,6 @@ class DataManager:
                 conn.commit()
                 return cursor.lastrowid
     
-    # ... (O resto das funções de escrita permanecem as mesmas) ...
-
     def add_player_vitals(self, jogador_id_canonico, fome="Normal", sede="Normal", cansaco="Descansado", humor="Neutro", motivacao="Neutro", timestamp_atual=None):
         if timestamp_atual is None:
             timestamp_atual = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -386,4 +384,30 @@ class DataManager:
             query = "INSERT INTO faccoes (id_canonico, nome, tipo, perfil_json) VALUES (?, ?, ?, ?)"
             cursor.execute(query, (id_canonico, nome, tipo, perfil_json_str))
             conn.commit()
+            return cursor.lastrowid
+
+    # --- NOVA FUNÇÃO ADICIONADA ---
+    def add_log_memory(self, jogador_id_canonico, tipo, conteudo, timestamp_evento=None):
+        """
+        Adiciona um novo registro de log ou memória consolidada para o jogador.
+        """
+        if timestamp_evento is None:
+            timestamp_evento = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Busca o ID numérico do jogador a partir do ID canônico
+            player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
+            if not player_res:
+                print(f"ERRO: Jogador com ID canônico '{jogador_id_canonico}' não encontrado. Log não pode ser adicionado.")
+                return None
+            player_db_id = player_res['id']
+
+            # Insere o novo log na tabela
+            query = "INSERT INTO jogador_logs_memoria (jogador_id, tipo, conteudo, timestamp_evento) VALUES (?, ?, ?, ?);"
+            cursor.execute(query, (player_db_id, tipo, conteudo, timestamp_evento))
+            conn.commit()
+            
+            print(f"INFO: Log do tipo '{tipo}' adicionado para o jogador '{jogador_id_canonico}'.")
             return cursor.lastrowid
