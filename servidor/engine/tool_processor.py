@@ -7,7 +7,7 @@ from servidor.data_managers.neo4j_manager import Neo4jManager
 class ToolProcessor:
     """
     Processa chamadas de função da IA, executa-as e sincroniza os pilares de dados.
-    Versão: 1.0.0
+    Versão: 1.1.0 - Corrigido o nome da variável de chromadb_manager.
     """
     def __init__(self, data_manager: DataManager, chromadb_manager: ChromaDBManager, neo4j_manager: Neo4jManager):
         self.data_manager = data_manager
@@ -18,6 +18,7 @@ class ToolProcessor:
     def _register_available_functions(self):
         """Mapeia os nomes das funções para os métodos dos gestores."""
         self.available_functions = {
+            # DataManager functions
             "add_or_get_location": self.data_manager.add_or_get_location,
             "add_or_get_player": self.data_manager.add_or_get_player,
             "add_player_vitals": self.data_manager.add_player_vitals,
@@ -30,7 +31,11 @@ class ToolProcessor:
             "add_or_get_element_universal": self.data_manager.add_or_get_element_universal,
             "add_or_get_personagem": self.data_manager.add_or_get_personagem,
             "add_or_get_faccao": self.data_manager.add_or_get_faccao,
-            "add_or_update_lore": self.chroma_manager.add_or_update_lore,
+            
+            # ChromaDBManager functions
+            "add_or_update_lore": self.chromadb_manager.add_or_update_lore, # CORREÇÃO: Usado self.chromadb_manager
+            
+            # Neo4jManager functions
             "add_or_update_parent_child_relation": self.neo4j_manager.add_or_update_parent_child_relation,
         }
         self.table_name_map = {
@@ -76,7 +81,8 @@ class ToolProcessor:
         if not entity_details: return
 
         text_content, metadata = self._prepare_chroma_data(entity_details, table_name)
-        if text_content: await self.chroma_manager.add_or_update_lore(id_canonico, text_content, metadata)
+        if text_content: 
+            await self.chromadb_manager.add_or_update_lore(id_canonico, text_content, metadata) # CORREÇÃO: Usado self.chromadb_manager
 
         await self._update_neo4j_graph(entity_details, table_name, processed_args, function_name)
 

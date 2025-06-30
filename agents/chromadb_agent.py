@@ -1,17 +1,17 @@
 import json
+from config import config
 
 class ChromaDBAgent:
     """
     Agente especializado em analisar a narrativa do Mestre de Jogo (MJ)
-    e extrair informações relevantes para serem armazenadas ou atualizadas
-    no ChromaDB como "lore" ou memória de longo prazo.
-    Versão: 1.0.1
+    e CONSOLIDAR informações relevantes para serem armazenadas no ChromaDB.
+    Versão: 1.2.0 - O agente agora é instruído a realizar até 5 operações de consolidação em lote.
     """
     def __init__(self):
         """
         Inicializa o agente do ChromaDB.
         """
-        print("INFO: ChromaDBAgent inicializado (v1.0.1).")
+        print("INFO: ChromaDBAgent (Consolidador em Lote) inicializado (v1.2.0).")
 
     def get_tool_declarations(self):
         """
@@ -21,13 +21,13 @@ class ChromaDBAgent:
             "functionDeclarations": [
                 {
                     "name": "add_or_update_lore",
-                    "description": "Adiciona ou atualiza um fragmento de lore (conhecimento do mundo) no banco de dados vetorial. Use para registrar descrições de locais, eventos históricos, fatos sobre personagens, etc. que foram mencionados na narrativa.",
+                    "description": "Adiciona ou ATUALIZA um fragmento de lore (conhecimento do mundo) no banco de dados vetorial. Use para CONSOLIDAR descrições.",
                     "parameters": {
                         "type": "OBJECT",
                         "properties": {
-                            "id_canonico": {"type": "STRING", "description": "Um ID único e canônico para ESTE FRAGMENTO DE LORE. Deve ser descritivo. Se relacionado a uma entidade, use o ID da entidade como base. Ex: 'estacao_lazarus_descricao_visual', 'historia_guerra_clonica_capitulo_1'."},
-                            "text_content": {"type": "STRING", "description": "O texto completo do fragmento de lore a ser armazenado e vetorizado."},
-                            "metadata": {"type": "STRING", "description": "Um objeto JSON como string contendo metadados. Ex: '{\"tipo\": \"local\", \"nome\": \"Estação Lazarus\"}'."}
+                            "id_canonico": {"type": "STRING", "description": "O ID canônico da ENTIDADE PRINCIPAL que está a ser descrita (ex: 'planeta_cygnus_prime', 'pj_lyra_a_andarilha')."},
+                            "text_content": {"type": "STRING", "description": "O texto COMPLETO e CONSOLIDADO do fragmento de lore a ser armazenado e vetorizado."},
+                            "metadata": {"type": "STRING", "description": "Um objeto JSON como string contendo metadados. Ex: '{\"tipo\": \"local\", \"nome\": \"Cygnus Prime\"}'."}
                         },
                         "required": ["id_canonico", "text_content", "metadata"]
                     }
@@ -41,25 +41,29 @@ class ChromaDBAgent:
         """
         context_str = json.dumps(game_context, indent=2, ensure_ascii=False)
 
-        # CORREÇÃO: As chaves {} dentro do exemplo de JSON foram duplicadas para {{}} para evitar o erro de formatação da f-string.
         return f"""
-Você é um "Agente de Memória de Contexto", um especialista em analisar narrativas de RPG e identificar fragmentos de conhecimento (lore) que devem ser preservados para referência futura. Sua única ferramenta é `add_or_update_lore`.
+        # INSTRUÇÃO PARA AGENTE DE MEMÓRIA DE CONTEXTO (CHROMA AI)
+        Você é um "Agente de Memória de Contexto", um especialista em analisar e **CONSOLIDAR** conhecimento (lore) de RPG.
 
-**Tarefa:**
-Analise a seguinte narrativa do Mestre de Jogo. Identifique qualquer nova informação descritiva, histórica ou factual sobre locais, personagens, itens, facções ou eventos. Para cada fragmento de lore identificado, chame a função `add_or_update_lore`.
+        **TAREFA CRÍTICA: PROCESSAMENTO EM LOTE E CONSOLIDAÇÃO!**
+        Sua tarefa é analisar a narrativa e, para cada entidade principal descrita, criar **UMA ÚNICA** chamada de função `add_or_update_lore` que **consolide TODA a nova informação sobre ela**. Você pode fazer **ATÉ {config.MAX_AGENT_TOOL_CALLS} chamadas de função no total** na sua resposta, uma para cada entidade diferente que foi descrita.
 
-**Regras Importantes:**
-1.  **Foco em Informação, Não em Ação:** Ignore ações do jogador ou eventos transitórios. Foque em descrições que definem o mundo. Ex: "A estação espacial era antiga, com corredores cobertos de poeira vermelha" -> BOM. "O jogador abriu a porta" -> RUIM.
-2.  **ID Canônico do Fragmento:** Crie um `id_canonico` descritivo e único para CADA FRAGMENTO de lore. Se a lore descreve uma entidade existente, use o ID canônico da entidade como base para criar um ID mais específico. Ex: se a entidade é `estacao_lazarus`, um bom ID de lore seria `estacao_lazarus_descricao_visual` ou `estacao_lazarus_historia_fundacao`.
-3.  **Metadados são Cruciais:** O campo `metadata` deve ser um JSON em formato de string. Ele ajuda a filtrar a lore no futuro.
-    *   `id_canonico` (string): O ID canônico da entidade principal a que esta lore se refere.
-    *   `metadata` (JSON STRING): Metadados adicionais em formato JSON string (ex: `'{{ "tipo": "local", "nome": "Estação Lazarus", "subtipo": "Estação Espacial Decadente" }}'`). Sempre inclua `tipo` (nome da tabela SQLite, ex: "locais", "personagens") e, se aplicável, `nome` e `subtipo` (a string de tipo que o MJ usou, ex: "Estação Espacial Decadente").
+        **EXEMPLO DE COMO AGIR:**
+        - **NARRATIVA:** "Lyra viu o Planeta X, que era vermelho. Perto dali, a Estação Y brilhava. A estação pertencia à Facção Z."
+        - **AÇÃO CORRETA (FAÇA ISTO):**
+          - `add_or_update_lore(id_canonico='planeta_x', text_content='Planeta X é um planeta vermelho.', ...)`
+          - `add_or_update_lore(id_canonico='estacao_y', text_content='Estação Y é uma estação brilhante que pertence à Facção Z.', ...)`
 
-**Contexto Atual do Jogo (para referência):**
-{context_str}
+        **REGRAS ADICIONAIS:**
+        1.  **Foco na Entidade Principal:** Identifique a entidade principal (local, personagem, etc.) e agrupe todos os detalhes sobre ela. O `id_canonico` da chamada da função deve ser o `id_canonico` da **entidade principal**.
+        2.  **Ignore Ações e Eventos Transitórios.**
+        3.  **Metadados são Cruciais.**
 
-**Narrativa a ser Analisada:**
-"{narrative_text}"
+        **Contexto Atual do Jogo (para referência):**
+        {context_str}
 
-Analise a narrativa e chame a função `add_or_update_lore` para cada fragmento de conhecimento relevante que você encontrar. Se não houver nada de novo para adicionar, não chame nenhuma função.
-"""
+        **Narrativa a ser Analisada:**
+        "{narrative_text}"
+
+        Analise a narrativa, **CONSOLIDE** as informações e chame a função `add_or_update_lore` UMA VEZ por entidade principal descrita, até um máximo de {config.MAX_AGENT_TOOL_CALLS} chamadas.
+        """

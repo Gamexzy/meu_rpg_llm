@@ -17,28 +17,6 @@ from servidor.engine.tool_processor import ToolProcessor
 from servidor.engine.game_engine import GameEngine
 from servidor.llm.client import LLMClient
 
-def show_detailed_loading_screen():
-    """Exibe uma animação de carregamento mais detalhada."""
-    steps = [
-        ("Conectando ao Pilar B (SQLite)", 0.5),
-        ("Conectando ao Pilar A (ChromaDB)", 0.7),
-        ("Conectando ao Pilar C (Neo4j)", 0.6),
-        ("Acordando Agentes de IA...", 1.0),
-    ]
-    
-    print("\n\033[1;34m===========================================\033[0m")
-    print("\033[1;34m=    INICIANDO SIMULAÇÃO DE UNIVERSO    =\033[0m")
-    print("\033[1;34m===========================================\033[0m\n")
-    
-    for step, duration in steps:
-        sys.stdout.write(f"  \033[1;36m[ ]\033[0m {step}")
-        sys.stdout.flush()
-        time.sleep(duration)
-        sys.stdout.write(f"\r  \033[1;32m[✓]\033[0m {step} - Concluído\n")
-        
-    print("\n\033[1;32mSISTEMA PRONTO. BEM-VINDO AO UNIVERSO!\033[0m")
-    print("\033[1;34m===========================================\033[0m\n")
-
 def initialize_db_schema():
     """Garante que o esquema do banco de dados exista."""
     if not os.path.exists(config.DB_PATH_SQLITE):
@@ -53,7 +31,8 @@ def initialize_db_schema():
 def is_new_game():
     """Verifica se um jogo está em andamento."""
     try:
-        temp_data_manager = DataManager()
+        # Temporariamente cria um DataManager para verificar o estado do jogo
+        temp_data_manager = DataManager(supress_success_message=True)
         is_empty = not temp_data_manager.get_all_entities_from_table('jogador')
         del temp_data_manager
         return is_empty
@@ -73,15 +52,46 @@ async def main():
         print("--- Jogo salvo encontrado. Carregando universo... ---")
     
     try:
-        # Inicialização dos componentes
-        data_manager = DataManager()
-        chromadb_manager = ChromaDBManager(verbose=False) # Silencia logs detalhados do Chroma na inicialização
-        neo4j_manager = Neo4jManager()
-        
+        # --- Tela de Carregamento Integrada ---
+        print("\n\033[1;34m===========================================\033[0m")
+        print("\033[1;34m=    INICIANDO SIMULAÇÃO DE UNIVERSO    =\033[0m")
+        print("\033[1;34m===========================================\033[0m\n")
+
+        # Passo 1: Conectar ao Pilar B (SQLite)
+        sys.stdout.write("  \033[1;36m[ ]\033[0m Conectando ao Pilar B (SQLite)...\n")
+        sys.stdout.flush()
+        time.sleep(0.2)
+        data_manager = DataManager() # A inicialização imprimirá seus próprios logs aqui
+        time.sleep(0.3)
+        sys.stdout.write("      \033[1;32m↳ Conexão estabelecida com sucesso.\033[0m\n\n")
+
+        # Passo 2: Conectar ao Pilar A (ChromaDB)
+        sys.stdout.write("  \033[1;36m[ ]\033[0m Conectando ao Pilar A (ChromaDB)...\n")
+        sys.stdout.flush()
+        time.sleep(0.2)
+        chromadb_manager = ChromaDBManager() # A inicialização imprimirá seus próprios logs aqui
+        time.sleep(0.5)
+        sys.stdout.write("      \033[1;32m↳ Conexão estabelecida com sucesso.\033[0m\n\n")
+
+        # Passo 3: Conectar ao Pilar C (Neo4j)
+        sys.stdout.write("  \033[1;36m[ ]\033[0m Conectando ao Pilar C (Neo4j)...\n")
+        sys.stdout.flush()
+        time.sleep(0.2)
+        neo4j_manager = Neo4jManager() # A inicialização imprimirá seus próprios logs aqui
+        time.sleep(0.4)
+        sys.stdout.write("      \033[1;32m↳ Conexão estabelecida com sucesso.\033[0m\n\n")
+
+        # Passo 4: Inicializar Motores e Agentes de IA
+        sys.stdout.write("  \033[1;36m[ ]\033[0m Acordando Agentes e Motores de IA...\n")
+        sys.stdout.flush()
+        time.sleep(0.2)
         context_builder = ContextBuilder(data_manager, chromadb_manager)
         tool_processor = ToolProcessor(data_manager, chromadb_manager, neo4j_manager)
-        
-        show_detailed_loading_screen()
+        time.sleep(0.8)
+        sys.stdout.write("      \033[1;32m↳ Sistemas de IA operacionais.\033[0m\n")
+
+        print("\n\033[1;32mSISTEMA PRONTO. BEM-VINDO AO UNIVERSO!\033[0m")
+        print("\033[1;34m===========================================\033[0m\n")
 
         async with aiohttp.ClientSession() as session:
             llm_client = LLMClient(session, tool_processor)
@@ -111,6 +121,7 @@ async def main():
         print("\nEncerrando a simulação...")
 
 if __name__ == '__main__':
+    # Garante que o loop de eventos correto seja usado no Windows
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     

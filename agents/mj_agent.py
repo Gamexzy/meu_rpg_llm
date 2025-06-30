@@ -1,22 +1,16 @@
 import json
 import datetime
-import os
-import sys
-
-# Adiciona o diretório raiz do projeto ao sys.path para que o config possa ser importado
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
-import config as config
+from config import config
 
 class MJAgent:
     """
     Agente de IA principal (Mestre de Jogo) responsável pela geração da narrativa
     e pelas ações diretas que moldam o início do mundo e o estado básico do jogador.
-    (Versão: 1.0.0)
+    (Versão: 1.2.0 - Instrução de prompt atualizada para que a IA crie o ID do jogador.)
     """
 
     def __init__(self):
-        print("INFO: MJAgent principal inicializado (v1.0.0).")
+        print("INFO: MJAgent principal inicializado (v1.2.0).")
 
     def format_prompt(self, contexto, acao_do_jogador):
         """
@@ -75,9 +69,9 @@ class MJAgent:
 # INSTRUÇÃO CRÍTICA PARA CRIAÇÃO DO MUNDO (Se o Jogador não existir):
 O jogo está começando do zero. Seu objetivo é estabelecer o ponto de partida da aventura.
 Você DEVE realizar as seguintes ações, usando as funções do DataManager (via Function Calling):
-1. Crie um local inicial (add_or_get_location). Dê a ele um nome, um 'tipo' (STRING LIVRE, ex: 'Planeta Verdejante', 'Estação de Mineração Abandonada') e uma descrição em 'perfil_json_data'. Crie um 'id_canonico' único (ex: 'local_floresta_sombria').
-2. Crie o personagem do jogador (add_or_get_player) com o id_canonico '{config.DEFAULT_PLAYER_ID_CANONICO}'. Dê a ele um nome (ex: 'Gabriel', 'Elara'), um perfil completo em 'perfil_completo_data' (raça, ocupação, personalidade) e vincule-o ao 'id_canonico' do local que você acabou de criar.
-Após a criação, inicie a narrativa descrevendo o ambiente e o que o jogador (com o nome que você definiu para o personagem com ID '{config.DEFAULT_PLAYER_ID_CANONICO}') percebe.
+1. Crie um local inicial (add_or_get_location). Dê a ele um nome, um 'tipo' (STRING LIVRE, ex: 'Planeta Verdejante', 'Estação de Mineração Abandonada') e uma descrição em 'perfil_json_data'. Crie um 'id_canonico' único para o local (ex: 'local_floresta_sombria').
+2. Crie o personagem do jogador (add_or_get_player). Crie um 'id_canonico' único e descritivo para ele (ex: 'pj_kael_o_explorador', 'personagem_lyra_a_nomade'). Dê a ele um nome, um perfil completo em 'perfil_completo_data' (raça, ocupação, personalidade) e vincule-o ao 'id_canonico' do local que você acabou de criar.
+Após a criação, inicie a narrativa descrevendo o ambiente e o que o jogador percebe.
 """
             
         prompt = f"""
@@ -155,7 +149,7 @@ Agora, narre o resultado desta ação. Seja descritivo, envolvente e avance a hi
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "id_canonico": {"type": "string", "description": "ID canônico único do jogador (ex: 'pj_gabriel_oliveira')."},
+                            "id_canonico": {"type": "string", "description": "ID canônico único e criativo para o jogador (ex: 'pj_kael_o_explorador')."},
                             "nome": {"type": "string", "description": "Nome do jogador."},
                             "local_inicial_id_canonico": {"type": "string", "description": "ID canônico do local onde o jogador inicia."},
                             "perfil_completo_data": {"type": "string", "description": "Dados completos do perfil do jogador em formato JSON string (ex: '{\"raca\": \"Humano\", \"ocupacao\": \"Explorador\"}')."}
