@@ -19,25 +19,31 @@ CHROMA_PATH = os.path.join(PROD_DATA_DIR, 'chroma_db')
 # --- Configuração do Neo4j (Pilar C) ---
 NEO4J_URI = os.environ.get("NEO4J_URI", "neo4j://127.0.0.1:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "password") # Altere se sua senha for diferente
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "password") # ALtere se sua senha for diferente
 
 # --- Configuração da API Gemini (LLM e Embedding) ---
+# Se estiver rodando localmente, você DEVE definir a variável de ambiente GEMINI_API_KEY.
+# Ex: export GEMINI_API_KEY="SUA_CHAVE_AQUI" no Linux/macOS
+#     set GEMINI_API_KEY=SUA_CHAVE_AQUI no Windows CMD
+# Ou, para testes, você pode substituir os.environ.get("GEMINI_API_KEY", "") por sua chave.
+# IMPORTANTE: Em produção, sempre use variáveis de ambiente.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Modelo de Geração de Conteúdo (LLM principal e Agentes)
-GENERATIVE_MODEL = "gemini-2.0-flash"
+# Modelo de Geração de Conteúdo (LLM principal)
+GENERATIVE_MODEL = "gemini-2.0-flash" 
+
+# NOVO: Modelo de Geração para Agentes Especializados (SQLite, ChromaDB, Neo4j Agents)
 AGENT_GENERATIVE_MODEL = "gemini-2.0-flash-lite"
 
 # Modelo de Embedding
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "all-MiniLM-L6-v2" # Ou "text-embedding-004" se preferir o estável
 
-# --- Configurações dos Agentes ---
-# Número máximo de "tarefas" ou chamadas de função que um agente pode
-# realizar em um único turno. Isto controla o processamento em lote.
-MAX_AGENT_TOOL_CALLS = 5
+# --- Outras Configurações Globais (Exemplos) ---
+DEFAULT_PLAYER_ID_CANONICO = 'pj_gabriel_oliveira'
+DEFAULT_INITIAL_LOCATION_ID_CANONICO = 'estacao_base_alfa'
 
 # Versão do Arquivo de Configuração
-CONFIG_VERSION = "1.3.0" # Adicionada configuração de processamento em lote para agentes.
+CONFIG_VERSION = "1.0.1" # Atualizado para refletir a nova configuração de modelos
 
 # Exemplo de como você pode imprimir as configurações para depuração
 def print_config_summary():
@@ -52,9 +58,8 @@ def print_config_summary():
     print(f"Neo4j Password: {'********' if NEO4J_PASSWORD else 'N/A (Vazio)'}")
     print(f"GEMINI_API_KEY: {'********' if GEMINI_API_KEY else 'N/A (Vazio/Não Definida)'}")
     print(f"Modelo Generativo (Principal): {GENERATIVE_MODEL}")
-    print(f"Modelo Generativo (Agentes): {AGENT_GENERATIVE_MODEL}")
+    print(f"Modelo Generativo (Agentes): {AGENT_GENERATIVE_MODEL}") # Novo
     print(f"Modelo de Embedding: {EMBEDDING_MODEL}")
-    print(f"Máximo de Chamadas de Ferramenta por Agente: {MAX_AGENT_TOOL_CALLS}")
     print("---------------------------------\n")
 
 if __name__ == "__main__":
