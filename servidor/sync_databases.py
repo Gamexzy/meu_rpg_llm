@@ -16,14 +16,14 @@ from servidor.data_managers.neo4j_manager import Neo4jManager
 class DatabaseSynchronizer:
     """
     Orquestrador para a sincronização em lote de todos os pilares de dados.
-    Versão: 1.1.0 - Atualizados os caminhos de importação para a nova estrutura modular.
+    Versão: 1.2.0 - Corrigida a inicialização do ChromaDBManager.
     """
     def __init__(self):
         """
         Inicializa o sincronizador. Os managers são inicializados como None
         e serão criados sob demanda.
         """
-        print("--- Inicializando Sincronizador de Bases de Dados (v1.1.0) ---")
+        print("--- Inicializando Sincronizador de Bases de Dados (v1.2.0) ---")
         self.data_manager = None
         self.chroma_manager = None
         self.neo4j_manager = None
@@ -34,7 +34,7 @@ class DatabaseSynchronizer:
             self.data_manager = DataManager()
         if self.chroma_manager is None:
             # A inicialização do ChromaDB agora é silenciosa por padrão
-            self.chroma_manager = ChromaDBManager(verbose=False) 
+            self.chroma_manager = ChromaDBManager() # CORREÇÃO: Removido o argumento 'verbose'
         if self.neo4j_manager is None:
             self.neo4j_manager = Neo4jManager()
         print("INFO: Gestores de pilares inicializados para sincronização.")

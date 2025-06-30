@@ -6,7 +6,7 @@ from servidor.data_managers.chromadb_manager import ChromaDBManager
 class ContextBuilder:
     """
     Constrói o dicionário de contexto completo para um turno do jogo.
-    Versão: 1.0.0
+    Versão: 1.2.0 - Simplificada a busca do jogador, delegando a lógica para o DataManager.
     """
     def __init__(self, data_manager: DataManager, chromadb_manager: ChromaDBManager):
         self.data_manager = data_manager
@@ -16,15 +16,15 @@ class ContextBuilder:
         """
         Usa os gestores para obter um snapshot completo do estado atual do jogo.
         """
-        contexto = {}
-        JOGADOR_ID_CANONICO = config.DEFAULT_PLAYER_ID_CANONICO
-        estado_jogador = self.data_manager.get_player_full_status(JOGADOR_ID_CANONICO)
+        # Tenta obter o estado do jogador. O DataManager lida com a lógica de encontrar o jogador.
+        estado_jogador = self.data_manager.get_player_full_status()
 
+        # Se nenhum jogador for encontrado, significa que é um novo jogo.
         if not estado_jogador:
-            # Contexto para um mundo que ainda não foi criado pelo LLM
+            # Retorna um contexto inicial para o Mestre de Jogo criar o mundo.
             return {
                 'jogador': {
-                    'base': {'id_canonico': JOGADOR_ID_CANONICO, 'nome': 'Aguardando Criação'},
+                    'base': {'id_canonico': 'jogador_inexistente', 'nome': 'Aguardando Criação'},
                     'vitals': {}, 'habilidades': [], 'conhecimentos': [], 'posses': [], 'logs_recentes': []
                 },
                 'local_atual': {'id_canonico': 'o_vazio_inicial', 'nome': 'O Vazio', 'tipo': 'Espaço', 'perfil_json': {"descricao": "Um vazio sem forma, aguardando a criação de um universo."}},
@@ -35,12 +35,13 @@ class ContextBuilder:
                 'lore_relevante': []
             }
 
-        contexto['jogador'] = estado_jogador
+        # Se um jogador foi encontrado, constrói o contexto completo.
+        contexto = {'jogador': estado_jogador}
         local_id_canonico = estado_jogador['base'].get('local_id_canonico')
         local_id_numerico = estado_jogador['base'].get('local_id')
 
         if not local_id_canonico or not local_id_numerico:
-            contexto['local_atual'] = {'id_canonico': 'o_vazio_inicial', 'nome': 'O Vazio', 'tipo': 'Espaço', 'perfil_json': {"descricao": "Um vazio sem forma."}}
+            contexto['local_atual'] = {'id_canonico': 'limbo_desconhecido', 'nome': 'Limbo', 'perfil_json': {}}
             contexto['caminho_local'] = []
             contexto['locais_contidos'] = []
             contexto['locais_acessos_diretos'] = []
