@@ -5,12 +5,8 @@ import datetime
 import sys
 
 # Adiciona o diretório da raiz do projeto ao sys.path para que o módulo config possa ser importado
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
-import config  # <--- Importa o módulo config corretamente
-# entity_types_data não é mais necessário, pois a lógica de tipos_entidades foi removida.
-# sys.path.append(os.path.join(PROJECT_ROOT, 'data')) 
-# import entity_types_data as entity_types_data
+
+from config import config
 
 class DataManager:
     """

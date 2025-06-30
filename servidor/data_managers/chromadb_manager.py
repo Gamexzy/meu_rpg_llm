@@ -14,8 +14,7 @@ import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
 
 # Import global configurations
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config'))
-import config as config
+from config import config
 
 class ChromaDBManager:
     """

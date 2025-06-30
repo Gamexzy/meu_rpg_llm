@@ -3,13 +3,9 @@ import sys
 import json # Necessary for perfil_json
 from neo4j import GraphDatabase, basic_auth
 
-# Adds the project root directory to sys.path so that the config module can be imported
-# Assuming neo4j_manager.py is in meu_rpg_llm/servidor/
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
 
 # NEW: Import global configurations
-import config as config 
+from config import config
 
 class Neo4jManager:
     """
