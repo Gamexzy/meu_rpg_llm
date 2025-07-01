@@ -17,8 +17,20 @@ SQLITE_TOOL_DECLARATIONS = [
                 "required": ["id_canonico", "nome", "tipo"]
             }
         },
-        # add_or_get_player não deve ser chamada diretamente pela IA do SQLite para evitar recriar o jogador principal.
-        # Ele é criado pelo LLM principal na inicialização.
+        {
+            "name": "add_or_get_player",
+            "description": "Adiciona um novo jogador ao banco de dados ou retorna o ID se já existe. Use para criar o personagem principal.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "id_canonico": {"type": "string", "description": "ID canônico único e criativo para o jogador (ex: 'pj_kael_o_explorador')."},
+                    "nome": {"type": "string", "description": "Nome do jogador."},
+                    "local_inicial_id_canonico": {"type": "string", "description": "ID canônico do local onde o jogador inicia."},
+                    "perfil_completo_data": {"type": "string", "description": "Dados completos do perfil do jogador em formato JSON string (ex: '{\"raca\": \"Humano\", \"ocupacao\": \"Explorador\"}')."}
+                },
+                "required": ["id_canonico", "nome", "local_inicial_id_canonico", "perfil_completo_data"]
+            }
+        },
         {
             "name": "add_player_vitals",
             "description": "Adiciona ou atualiza o status físico e emocional do jogador.",
@@ -31,7 +43,7 @@ SQLITE_TOOL_DECLARATIONS = [
                     "cansaco": {"type": "string", "description": "Nível de cansaço (ex: 'Descansado', 'Fadigado').", "nullable": True},
                     "humor": {"type": "string", "description": "Estado de humor (ex: 'Neutro', 'Curioso').", "nullable": True},
                     "motivacao": {"type": "string", "description": "Nível de motivação (ex: 'Neutro', 'Motivado').", "nullable": True},
-                    "timestamp_atual": {"type": "string", "description": "Timestamp atual no formato अवलंब-MM-DD HH:MM:S.", "nullable": True}
+                    "timestamp_atual": {"type": "string", "description": "Timestamp atual no formato अवलंब-MM-DD HH:MM:SS.", "nullable": True}
                 },
                 "required": ["jogador_id_canonico"]
             }
@@ -176,6 +188,20 @@ SQLITE_TOOL_DECLARATIONS = [
                     "perfil_json_data": {"type": "string", "description": "Dados adicionais da facção em JSON string.", "nullable": True}
                 },
                 "required": ["id_canonico", "nome", "tipo"]
+            }
+        },
+        {
+            "name": "add_log_memory",
+            "description": "Adiciona um log ou memória consolidada para o jogador.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "jogador_id_canonico": {"type": "string", "description": "ID canônico do jogador."},
+                    "tipo": {"type": "string", "description": "Tipo de log (ex: 'log_evento', 'memoria_consolidada')."},
+                    "conteudo": {"type": "string", "description": "Conteúdo do log ou memória."},
+                    "timestamp_evento": {"type": "string", "description": "Timestamp do evento no formato अवलंब-MM-DD HH:MM:SS.", "nullable": True}
+                },
+                "required": ["jogador_id_canonico", "tipo", "conteudo"]
             }
         },
     ]}

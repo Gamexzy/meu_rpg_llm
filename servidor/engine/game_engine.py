@@ -10,7 +10,7 @@ from agents.world_agent import WorldAgent
 class GameEngine:
     """
     Motor principal do jogo. Orquestra cada turno.
-    Versão: 2.1.0 - Refatorado para usar um único WorldAgent unificado, otimizando chamadas de API e usando ferramentas centralizadas.
+    Versão: 2.2.0 - Refatorado para usar um único WorldAgent e refletir a separação de responsabilidades (MJAgent não tem mais ferramentas).
     """
     def __init__(self, context_builder: ContextBuilder, llm_client: LLMClient):
         """
@@ -33,9 +33,13 @@ class GameEngine:
         
         print("\033[1;36m--- Mestre de Jogo está a pensar... ---\033[0m")
         prompt_narrativa = self.mj_agent.format_prompt(context, player_action)
+        
         # 1ª Chamada de IA: Gerar a narrativa do Mestre de Jogo.
+        # O método get_tool_declarations() do MJAgent agora retorna None, efetivamente desabilitando ferramentas para ele.
         narrative, _ = await self.llm_client.call(
-            config.GENERATIVE_MODEL, prompt_narrativa, self.mj_agent.get_tool_declarations()
+            config.GENERATIVE_MODEL, 
+            prompt_narrativa, 
+            self.mj_agent.get_tool_declarations()
         )
         
         print("\n\033[1;35m--- RESPOSTA DO MESTRE DE JOGO ---\033[0m\n" + narrative)
@@ -65,12 +69,3 @@ class GameEngine:
         
         print("\033[1;32m--- Atualização do mundo concluída. ---\033[0m")
         return narrative
-
-# Resumo das Mudanças:
-#
-#1.  **Importações Limpas:** As importações dos `SQLiteAgent`, `ChromaDBAgent` e `Neo4jAgent` foram removidas e substituídas pela importação única do `WorldAgent`.
-#2.  **Inicialização Simplificada:** O método `__init__` agora só precisa instanciar o `mj_agent` e o `world_agent`.
-#3.  **Fluxo de Execução Otimizado:** O método `execute_turn` foi completamente refatorado. O bloco `asyncio.gather` que fazia três chamadas simultâneas foi substituído por uma **única chamada** ao `WorldAgent`.
-#4.  **Observabilidade:** Adicionamos um `print` para o `analysis_and_plan_text`. Isso é extremamente útil para você, como desenvolvedor, ver exatamente como a IA interpretou a narrativa e o que ela planejou fazer antes de executar as ferramentas.
-#
-# Com esta atualização, seu `GameEngine` está agora alinhado com a arquitetura mais robusta e eficiente que projetamos, resolvendo o problema de *rate limiting* e tornando o sistema mais organiza
