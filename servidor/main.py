@@ -21,10 +21,9 @@ from servidor.engine.game_engine import GameEngine
 from servidor.llm.client import LLMClient
 
 # --- Componentes Globais do Jogo ---
-# Serão inicializados uma vez quando o servidor iniciar.
 game_engine = None
 app = Flask(__name__)
-CORS(app)  # Permite requisições de outras origens (como o app Android)
+CORS(app)
 
 def initialize_db_schema():
     """Garante que o esquema do banco de dados exista."""
@@ -49,7 +48,7 @@ def is_new_game():
         return True
 
 def initialize_game():
-    """Inicializa todos os componentes do motor do jogo."""
+    """Inicializa todos os componentes síncronos do motor do jogo."""
     global game_engine
     
     initialize_db_schema()
@@ -70,12 +69,9 @@ def initialize_game():
     context_builder = ContextBuilder(data_manager, chromadb_manager)
     tool_processor = ToolProcessor(data_manager, chromadb_manager, neo4j_manager)
     
-    # O aiohttp.ClientSession deve ser criado dentro de um contexto async
-    # mas para o Flask, vamos criá-lo aqui e gerenciá-lo manualmente.
-    # Uma solução mais robusta usaria um servidor ASGI como Uvicorn ou Hypercorn.
-    session = aiohttp.ClientSession()
-    llm_client = LLMClient(session, tool_processor)
-    game_engine = GameEngine(context_builder, llm_client)
+    # **CORREÇÃO**: O GameEngine agora recebe o tool_processor diretamente.
+    # O LLMClient e a sessão aiohttp serão criados dentro do GameEngine.
+    game_engine = GameEngine(context_builder, tool_processor)
 
     print("\n\033[1;32mSISTEMA PRONTO. AGUARDANDO CONEXÕES DO CLIENTE...\033[0m")
     print("\033[1;34m===========================================\033[0m\n")
@@ -107,6 +103,5 @@ if __name__ == '__main__':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     initialize_game()
-    # Executa o servidor Flask, acessível na sua rede local
+    # Executa o servidor Flask
     app.run(host='0.0.0.0', port=5000, debug=True)
-
