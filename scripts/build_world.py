@@ -1,23 +1,18 @@
 import sqlite3
 import os
 import sys
+import argparse
 
 # Adiciona o diretório da raiz do projeto ao sys.path para que os módulos possam ser importados
+# Isso garante que o script possa ser executado de qualquer lugar.
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(PROJECT_ROOT, 'config'))
-sys.path.append(os.path.join(PROJECT_ROOT, 'data')) # Adiciona o diretório 'data' ao sys.path - ainda necessário para o config
-
-# Importa as configurações globais
-import config as config 
-# entity_types_data não é mais necessário aqui, pois os tipos não serão pré-populados.
-# import entity_types_data as entity_types_data # type: ignore
-
-# create_meta_tables é removida pois a tabela tipos_entidades não será usada.
+sys.path.append(PROJECT_ROOT)
+from config import config
 
 def create_core_tables(cursor):
     """
-    Cria as tabelas principais de entidades.
-    REMOVIDO: Coluna tipo_id e suas FOREIGN KEY. O tipo agora será uma string direta.
+    Cria as tabelas principais de entidades do mundo (locais, personagens, etc.).
+    O tipo da entidade é uma string direta para maior flexibilidade.
     """
     print("Criando tabelas de entidades principais...")
     cursor.executescript("""
@@ -25,7 +20,7 @@ def create_core_tables(cursor):
             id INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
-            tipo TEXT, -- O tipo agora é uma string direta, não um ID de lookup
+            tipo TEXT,
             parent_id INTEGER,
             perfil_json TEXT,
             FOREIGN KEY (parent_id) REFERENCES locais(id) ON DELETE RESTRICT
@@ -35,7 +30,7 @@ def create_core_tables(cursor):
             id INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
-            tipo TEXT, -- O tipo agora é uma string direta
+            tipo TEXT,
             perfil_json TEXT
         );
 
@@ -43,7 +38,7 @@ def create_core_tables(cursor):
             id INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
-            tipo TEXT, -- O tipo agora é uma string direta
+            tipo TEXT,
             perfil_json TEXT
         );
 
@@ -51,13 +46,21 @@ def create_core_tables(cursor):
             id INTEGER PRIMARY KEY,
             id_canonico TEXT UNIQUE NOT NULL,
             nome TEXT NOT NULL,
-            tipo TEXT, -- O tipo agora é uma string direta
+            tipo TEXT,
+            perfil_json TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS itens (
+            id INTEGER PRIMARY KEY,
+            id_canonico TEXT UNIQUE NOT NULL,
+            nome TEXT NOT NULL,
+            tipo TEXT,
             perfil_json TEXT
         );
     """)
 
 def create_player_tables(cursor):
-    """Cria as tabelas específicas do jogador."""
+    """Cria todas as tabelas relacionadas ao estado e progresso do jogador."""
     print("Criando tabelas do jogador...")
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS jogador (
@@ -76,8 +79,8 @@ def create_player_tables(cursor):
             nome TEXT NOT NULL,
             nivel_subnivel TEXT,
             observacoes TEXT,
-            UNIQUE(jogador_id, categoria, nome), -- Adicionando UNIQUE para idempotência
-            FOREIGN KEY (jogador_id) REFERENCES jogador(id)
+            UNIQUE(jogador_id, categoria, nome),
+            FOREIGN KEY (jogador_id) REFERENCES jogador(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS jogador_conhecimentos (
@@ -87,44 +90,43 @@ def create_player_tables(cursor):
             nome TEXT NOT NULL,
             nivel INTEGER,
             descricao TEXT,
-            UNIQUE(jogador_id, categoria, nome), -- Adicionando UNIQUE para idempotência
-            FOREIGN KEY (jogador_id) REFERENCES jogador(id)
+            UNIQUE(jogador_id, categoria, nome),
+            FOREIGN KEY (jogador_id) REFERENCES jogador(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS jogador_posses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_canonico TEXT UNIQUE NOT NULL, -- NOVO: ID canônico para a posse
+            id_canonico TEXT UNIQUE NOT NULL,
             jogador_id INTEGER NOT NULL,
             item_nome TEXT NOT NULL,
             perfil_json TEXT,
-            FOREIGN KEY (jogador_id) REFERENCES jogador(id)
+            FOREIGN KEY (jogador_id) REFERENCES jogador(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS jogador_status_fisico_emocional (
             id INTEGER PRIMARY KEY,
-            jogador_id INTEGER NOT NULL,
+            jogador_id INTEGER NOT NULL UNIQUE,
             fome TEXT,
             sede TEXT,
             cansaco TEXT,
             humor TEXT,
             motivacao TEXT,
-            -- Data/Hora padronizada para ordenação e cálculos
-            timestamp_atual TEXT, -- Formato 'YYYY-MM-DD HH:MM:SS'
-            FOREIGN KEY (jogador_id) REFERENCES jogador(id)
+            timestamp_atual TEXT,
+            FOREIGN KEY (jogador_id) REFERENCES jogador(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS jogador_logs_memoria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             jogador_id INTEGER NOT NULL,
-            tipo TEXT NOT NULL, -- 'log_evento' ou 'memoria_consolidada'
-            timestamp_evento TEXT, -- Formato 'YYYY-MM-DD HH:MM:SS'
+            tipo TEXT NOT NULL, -- Ex: 'log_evento', 'memoria_consolidada'
+            timestamp_evento TEXT,
             conteudo TEXT,
-            FOREIGN KEY (jogador_id) REFERENCES jogador(id)
+            FOREIGN KEY (jogador_id) REFERENCES jogador(id) ON DELETE CASCADE
         );
     """)
 
 def create_relationship_tables(cursor):
-    """Cria as tabelas que definem relações entre entidades."""
+    """Cria tabelas que definem relações entre diferentes entidades."""
     print("Criando tabelas de relações...")
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS local_elementos (
@@ -148,86 +150,86 @@ def create_relationship_tables(cursor):
         CREATE TABLE IF NOT EXISTS relacoes_entidades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             entidade_origem_id TEXT NOT NULL,
-            entidade_origem_tipo TEXT NOT NULL, -- nome da tabela da entidade (ex: "personagens")
+            entidade_origem_tipo TEXT NOT NULL,
             tipo_relacao TEXT NOT NULL,
             entidade_destino_id TEXT NOT NULL,
-            entidade_destino_tipo TEXT NOT NULL, -- nome da tabela da entidade (ex: "locais")
-            propriedades_json TEXT
+            entidade_destino_tipo TEXT NOT NULL,
+            propriedades_json TEXT,
+            UNIQUE(entidade_origem_id, tipo_relacao, entidade_destino_id)
         );
     """)
 
 def create_indexes(cursor):
-    """
-    Cria índices para otimização de consultas.
-    REMOVIDO: Índices relacionados a tipo_id.
-    """
+    """Cria índices para otimizar a performance das consultas mais comuns."""
     print("Criando índices para otimização...")
     cursor.executescript("""
         CREATE INDEX IF NOT EXISTS idx_locais_id_canonico ON locais(id_canonico);
         CREATE INDEX IF NOT EXISTS idx_locais_parent_id ON locais(parent_id);
-        -- REMOVIDO: CREATE INDEX IF NOT EXISTS idx_locais_tipo_id ON locais(tipo); -- Agora 'tipo' é string, não precisa de índice aqui como ID
-
         CREATE INDEX IF NOT EXISTS idx_elementos_universais_id_canonico ON elementos_universais(id_canonico);
-        -- REMOVIDO: CREATE INDEX IF NOT EXISTS idx_elementos_universais_tipo_id ON elementos_universais(tipo);
-
         CREATE INDEX IF NOT EXISTS idx_personagens_id_canonico ON personagens(id_canonico);
-        -- REMOVIDO: CREATE INDEX IF NOT EXISTS idx_personagens_tipo_id ON personagens(tipo);
-
         CREATE INDEX IF NOT EXISTS idx_faccoes_id_canonico ON faccoes(id_canonico);
-        -- REMOVIDO: CREATE INDEX IF NOT EXISTS idx_faccoes_tipo_id ON faccoes(tipo);
-        
+        CREATE INDEX IF NOT EXISTS idx_itens_id_canonico ON itens(id_canonico);
         CREATE INDEX IF NOT EXISTS idx_jogador_id_canonico ON jogador(id_canonico);
-        CREATE INDEX IF NOT EXISTS idx_jogador_local_atual_id ON jogador(local_atual_id);
-        
-        CREATE INDEX IF NOT EXISTS idx_jogador_posses_id_canonico ON jogador_posses(id_canonico);
         CREATE INDEX IF NOT EXISTS idx_jogador_posses_jogador_id ON jogador_posses(jogador_id);
-
         CREATE INDEX IF NOT EXISTS idx_relacoes_entidades_origem ON relacoes_entidades(entidade_origem_id, entidade_origem_tipo);
         CREATE INDEX IF NOT EXISTS idx_relacoes_entidades_destino ON relacoes_entidades(entidade_destino_id, entidade_destino_tipo);
-        CREATE INDEX IF NOT EXISTS idx_relacoes_entidades_tipo_relacao ON relacoes_entidades(tipo_relacao);
     """)
-
-# populate_meta_tables é removida pois a tabela tipos_entidades não será usada.
 
 def setup_database(cursor):
     """
-    Cria a estrutura completa e vazia da base de dados (v10.0).
-    Versão: 10.0 - Removida a tabela 'tipos_entidades' e a coluna 'tipo_id' das entidades principais.
+    Executa todas as funções para criar a estrutura completa e vazia da base de dados.
+    Versão: 11.0 - Unificado para suportar criação de DBs por sessão.
     """
-    print("--- Configurando a Base de Dados (v10.0) ---")
-    # create_meta_tables(cursor) -- REMOVIDO
+    print("--- Configurando a Base de Dados (v11.0) ---")
+    cursor.execute("PRAGMA foreign_keys = ON;")
     create_core_tables(cursor)
     create_player_tables(cursor)
     create_relationship_tables(cursor)
     create_indexes(cursor)
-    # populate_meta_tables(cursor) -- REMOVIDO
-    print("SUCESSO: Base de dados v10.0 configurada com tabelas vazias.")
+    print("SUCESSO: Base de dados configurada com tabelas vazias.")
 
 def main():
     """
-    Função principal que orquestra a criação do esquema do banco de dados.
-    Cria o DB se não existe, ou garante que o esquema esteja atualizado se existe.
+    Função principal que orquestra a criação do esquema do banco de dados para uma sessão específica.
     """
-    # Usa config.PROD_DATA_DIR e config.DB_PATH_SQLITE
-    os.makedirs(config.PROD_DATA_DIR, exist_ok=True) 
+    parser = argparse.ArgumentParser(
+        description="Cria ou verifica a estrutura do banco de dados para uma sessão de jogo específica."
+    )
+    parser.add_argument(
+        "--session_name", 
+        type=str, 
+        required=True, 
+        help="O nome da sessão de jogo (será usado como nome do arquivo .db)."
+    )
+    args = parser.parse_args()
+
+    # Constrói o caminho do arquivo de banco de dados da sessão
+    db_path = os.path.join(config.PROD_DATA_DIR, f"{args.session_name}.db")
     
-    conn = sqlite3.connect(config.DB_PATH_SQLITE) # Usa config.DB_PATH_SQLITE
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA foreign_keys = ON;")
+    print(f"\n--- Iniciando a construção do mundo para a sessão: '{args.session_name}' ---")
+    print(f"Local do arquivo: {db_path}")
+
+    # Garante que o diretório de dados de produção exista
+    os.makedirs(config.PROD_DATA_DIR, exist_ok=True)
     
+    conn = None
     try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
         setup_database(cursor)
         conn.commit()
-        print(f"\n--- Estrutura do Mundo (v10.0) Verificada/Criada com Sucesso ---")
-        print(f"O arquivo '{config.DB_PATH_SQLITE}' está pronto para uso e seus dados serão persistidos.")
+        print(f"\n--- Estrutura do Mundo (v11.0) Verificada/Criada com Sucesso ---")
+        print(f"O arquivo '{db_path}' está pronto para uso.")
         
     except Exception as e:
-        conn.rollback()
+        if conn:
+            conn.rollback()
         import traceback
         traceback.print_exc()
-        print(f"\nERRO: A verificação/criação da estrutura do mundo falhou. Erro: {e}")
+        print(f"\nERRO: A criação da estrutura do mundo para a sessão '{args.session_name}' falhou. Erro: {e}")
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 if __name__ == '__main__':
     main()
