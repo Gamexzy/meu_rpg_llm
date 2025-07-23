@@ -22,6 +22,7 @@ from servidor.llm.client import LLMClient
 
 # --- Componentes Globais do Jogo ---
 game_engine = None
+data_manager = None # Tornando o data_manager global para ser acessado por outros endpoints
 app = Flask(__name__)
 CORS(app)
 
@@ -36,28 +37,11 @@ def initialize_db_schema():
             print(f"ERRO CRÍTICO: Script 'build_world.py' não encontrado.", file=sys.stderr)
             sys.exit(1)
 
-def is_new_game():
-    """Verifica se um jogo está em andamento."""
-    try:
-        temp_data_manager = DataManager(supress_success_message=True)
-        is_empty = not temp_data_manager.get_all_entities_from_table('jogador')
-        del temp_data_manager
-        return is_empty
-    except Exception as e:
-        print(f"Erro ao verificar o estado do jogo: {e}", file=sys.stderr)
-        return True
-
 def initialize_game():
     """Inicializa todos os componentes síncronos do motor do jogo."""
-    global game_engine
+    global game_engine, data_manager
     
     initialize_db_schema()
-    new_game = is_new_game()
-
-    if new_game:
-        print("--- Nenhum jogo salvo detectado. Preparando para um novo universo... ---")
-    else:
-        print("--- Jogo salvo encontrado. Carregando universo... ---")
 
     print("\n\033[1;34m===========================================\033[0m")
     print("\033[1;34m=    INICIANDO SIMULAÇÃO DE UNIVERSO    =\033[0m")
@@ -69,8 +53,6 @@ def initialize_game():
     context_builder = ContextBuilder(data_manager, chromadb_manager)
     tool_processor = ToolProcessor(data_manager, chromadb_manager, neo4j_manager)
     
-    # **CORREÇÃO**: O GameEngine agora recebe o tool_processor diretamente.
-    # O LLMClient e a sessão aiohttp serão criados dentro do GameEngine.
     game_engine = GameEngine(context_builder, tool_processor)
 
     print("\n\033[1;32mSISTEMA PRONTO. AGUARDANDO CONEXÕES DO CLIENTE...\033[0m")
@@ -89,7 +71,6 @@ def execute_turn_route():
          return jsonify({"error": "O motor do jogo não foi inicializado."}), 500
 
     try:
-        # Executa a lógica assíncrona do jogo em um novo loop de eventos
         narrative = asyncio.run(game_engine.execute_turn(player_action))
         return jsonify({"narrative": narrative})
     except Exception as e:
@@ -98,10 +79,35 @@ def execute_turn_route():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+# --- NOVO ENDPOINT PARA A ABA LATERAL ---
+@app.route('/get_game_state', methods=['GET'])
+def get_game_state_route():
+    """Endpoint para o app buscar o estado completo do jogador e do mundo."""
+    if not data_manager:
+        return jsonify({"error": "O DataManager não foi inicializado."}), 500
+    
+    try:
+        # A função get_player_full_status já busca todas as informações necessárias
+        player_status = data_manager.get_player_full_status()
+        if player_status:
+            return jsonify(player_status)
+        else:
+            # Retorna um estado de "novo jogo" se nenhum jogador for encontrado
+            return jsonify({
+                'base': {'nome': 'Aguardando Criação'},
+                'vitals': {}, 'habilidades': [], 'conhecimentos': [], 'posses': []
+            }), 200
+    except Exception as e:
+        print(f"\n\033[1;31mERRO AO BUSCAR ESTADO DO JOGO:\033[0m", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     initialize_game()
-    # Executa o servidor Flask
     app.run(host='0.0.0.0', port=5000, debug=True)
+
