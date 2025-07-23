@@ -21,7 +21,7 @@ from servidor.engine.game_engine import GameEngine
 
 # --- CONFIGURAÇÃO DE VERSÃO ---
 SERVER_VERSION = "1.2.0"
-MINIMUM_CLIENT_VERSION = "1.2"
+MINIMUM_CLIENT_VERSION = "1.1"
 
 # --- GERENCIADOR DE SESSÕES ---
 # Armazena as instâncias do motor de jogo para cada sessão ativa

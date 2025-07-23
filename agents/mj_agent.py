@@ -1,134 +1,50 @@
-import json
-import datetime
+from langchain_core.tools import BaseTool
+from typing import List
 
 class MJAgent:
     """
-    Agente de IA principal (Mestre de Jogo) responsável exclusivamente pela geração da narrativa.
-    Versão: 2.2.0 - O prompt inicial foi generalizado para suportar uma criação de mundo interativa ou automática.
+    Agente Mestre de Jogo (MJ). Gera a narrativa principal do jogo.
+    Versão: 2.0.0 - Adaptado para o novo fluxo de criação de personagem.
     """
-
     def __init__(self):
-        print("INFO: MJAgent (Narrador Puro v2.2) inicializado.")
+        # O prompt agora instrui o MJ a usar a ação do jogador como base para a narrativa,
+        # em vez de fazer uma pergunta aberta no início.
+        self.system_prompt_template = """
+Você é o Mestre de Jogo (MJ) de um RPG de texto imersivo e dinâmico. Sua função é tecer uma narrativa envolvente baseada nas ações do jogador e no estado atual do mundo.
 
-    def format_prompt(self, contexto, acao_do_jogador):
-        """
-        Formata o dicionário de contexto num prompt de texto para o LLM principal (narrativa).
-        """
-        
-        # --- Bloco de Instrução para Criação de Mundo (se aplicável) ---
-        player_creation_instruction = ""
-        if contexto['jogador']['base']['nome'] == 'Aguardando Criação':
-            player_creation_instruction = f"""
-# INSTRUÇÃO CRÍTICA: INÍCIO DO JOGO - MODO DE CRIAÇÃO
-O jogo está começando. Você é o Mestre da Criação. Sua primeira tarefa é interagir com o jogador para criar o personagem e o mundo, ou criar uma história por conta própria.
+**DIRETRIZES DE NARRAÇÃO:**
 
-**Cenário 1: O jogador quer participar da criação.**
-- A ação do jogador pode ser uma descrição ("quero ser um mago em um mundo de fantasia") ou uma pergunta.
-- Sua função é conversar. Faça perguntas para refinar a ideia. Ex: "Interessante! Como você se chama?", "Como é esse mundo de fantasia?".
+1.  **Narrativa Reativa:** Sua principal tarefa é descrever o resultado das ações do jogador. Use a "Ação do Jogador" fornecida como o gatilho para a sua narração.
+2.  **Primeiro Turno:** No início de uma nova saga, a "Ação do Jogador" será uma descrição do personagem e do conceito do mundo. Use essa descrição para criar a cena de abertura da aventura. Apresente o personagem ao mundo e dê a ele um primeiro desafio ou um gancho para a história.
+3.  **Imersão e Tom:** Mantenha um tom que combine com o universo do jogo. Descreva o ambiente, os sons, os cheiros e as emoções para criar uma experiência rica e imersiva.
+4.  **Liberdade do Jogador:** Sempre termine sua narrativa de forma aberta, dando ao jogador a liberdade para decidir sua próxima ação. Não ofereça opções pré-definidas.
 
-**Cenário 2: O jogador quer ser surpreendido.**
-- A ação do jogador será algo como "surpreenda-me", "comece o jogo" ou um simples Enter.
-- Neste caso, use sua total liberdade criativa. Narre o despertar do personagem, descreva o ambiente inicial (planeta, estação espacial, etc.), dê um nome ao local e ao personagem. Crie uma introdução rica e envolvente.
+**Contexto do Mundo Atual:**
+{context}
 
-**IMPORTANTE:** Sua única função é narrar ou dialogar. O 'Agente Arquiteto' irá ler sua resposta e criar as entidades no banco de dados. Foque apenas na história.
-
-**Ação Inicial do Jogador:** "{acao_do_jogador}"
-"""
-        else:
-            player_creation_instruction = f"""
-# AÇÃO DO JOGADOR
-"{acao_do_jogador}"
+**Ação do Jogador:**
+{player_action}
 """
 
-        # --- Diretrizes Gerais de Narração ---
-        diretrizes_narracao = """
-        Diretrizes de Narração:
-        - Narrativa Fluida e Ações (Sem Opções Numeradas): A história segue de forma natural com as decisões do personagem.
-        - Descrições Opcionais: Descrições de ambientes são omitidas, a menos que solicitadas.
-        - Progresso Implícito: O progresso em habilidades é comunicado de maneira narrativa, não de forma técnica.
-        - Imersão Total: O jogador vivencia o mundo através dos sentidos e limitações do personagem.
+    def format_prompt(self, context: str, player_action: str) -> str:
         """
-        
-        # --- Funções Auxiliares para Formatação do Contexto ---
-        def format_vitals(vitals):
-            if not vitals: return "N/A"
-            return ", ".join([f"{key.capitalize()}: {value}" for key, value in vitals.items() if key not in ['id', 'jogador_id', 'timestamp_atual']])
+        Formata o prompt completo para o MJAgent.
 
-        def format_list(items, name_key, details_map):
-            if not items: return "Nenhum(a)."
-            lines = []
-            for item in items:
-                name = item.get(name_key, "N/A")
-                details = []
-                for key, label in details_map.items():
-                    value = item.get(key)
-                    if value:
-                        details.append(f"{label}: {value}")
-                details_str = f"({', '.join(details)})" if details else ""
-                lines.append(f"- {name} {details_str}")
-            return "\n".join(lines)
+        Args:
+            context (str): O contexto atual do jogo.
+            player_action (str): A ação (ou descrição inicial) do jogador.
 
-        def format_possessions(items):
-            if not items: return "Nada."
-            lines = []
-            for item in items:
-                name = item.get('item_nome', 'Item Desconhecido')
-                try:
-                    profile = json.loads(item.get('perfil_json', '{}')) if item.get('perfil_json') else {}
-                    details_str = f"({', '.join([f'{k}: {v}' for k, v in profile.items()])})" if profile else ""
-                    lines.append(f"- {name} {details_str}")
-                except (json.JSONDecodeError, TypeError):
-                    lines.append(f"- {name}")
-            return "\n".join(lines)
-
-        # --- Extração e Formatação do Contexto ---
-        jogador_base = contexto['jogador']['base']
-        local_atual = contexto['local_atual']
-        
-        try:
-            perfil_jogador = json.loads(jogador_base.get('perfil_completo_json', '{}')) if jogador_base.get('perfil_completo_json') else {}
-        except (json.JSONDecodeError, TypeError):
-            perfil_jogador = {}
-
-        lore_relevante_str = "\n".join([f"- {doc}" for doc in contexto['lore_relevante']]) if contexto.get('lore_relevante') else "Nenhuma informação adicional relevante."
-
-        # --- Montagem Final do Prompt ---
-        prompt = f"""
-# ORDENS DO MESTRE
-Você é um Mestre de Jogo de um RPG de texto. Sua função é descrever o resultado das ações do jogador ou conduzir a criação do mundo de forma narrativa, coesa e criativa. O cenário do jogo é genérico e pode se adaptar a qualquer gênero.
-
-# DIRETRIZES DE NARRAÇÃO
-{diretrizes_narracao}
-
-# ESTADO ATUAL DO MUNDO
-## Jogador: {jogador_base.get('nome', 'N/A')} ({jogador_base.get('id_canonico', 'N/A')})
-- **Perfil:** {json.dumps(perfil_jogador, ensure_ascii=False)}
-- **Estado Físico e Emocional:** {format_vitals(contexto['jogador']['vitals'])}
-- **Habilidades:**
-{format_list(contexto['jogador']['habilidades'], 'nome', {'categoria': 'Cat.', 'nivel_subnivel': 'Nível'})}
-- **Conhecimentos:**
-{format_list(contexto['jogador']['conhecimentos'], 'nome', {'categoria': 'Cat.', 'nivel': 'Nível'})}
-- **Posses:**
-{format_possessions(contexto['jogador']['posses'])}
-
-## Ambiente
-- **Localização:** {' -> '.join([l['nome'] for l in reversed(contexto.get('caminho_local', []))]) if contexto.get('caminho_local') else local_atual.get('nome', 'Desconhecida')}
-- **Descrição do Local ({local_atual.get('nome', 'N/A')}):** {local_atual.get('perfil_json', {}).get('descricao', 'Nenhuma descrição disponível.')}
-- **Locais Contidos:** {[l['nome'] for l in contexto.get('locais_contidos', [])] or 'Nenhum'}
-- **Acessos Diretos:** {[a['nome'] for a in contexto.get('locais_acessos_diretos', [])] or 'Nenhum'}
-
-## Memória Recente (Lore Relevante)
-{lore_relevante_str}
-
-{player_creation_instruction}
-
-# SUA RESPOSTA
-Agora, narre o resultado ou continue a conversa de criação. Seja descritivo, envolvente e avance a história.
-"""
-        return prompt
-
-    def get_tool_declarations(self):
+        Returns:
+            str: O prompt formatado.
         """
-        O Mestre de Jogo não possui mais ferramentas de escrita. Sua única função é narrar.
+        return self.system_prompt_template.format(
+            context=context,
+            player_action=player_action
+        )
+
+    def get_tool_declarations(self) -> List[BaseTool]:
         """
-        return None
+        Retorna as ferramentas que este agente pode usar.
+        O MJAgent geralmente não modifica o estado do mundo, então ele não tem ferramentas.
+        """
+        return []

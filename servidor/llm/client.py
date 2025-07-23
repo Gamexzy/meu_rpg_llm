@@ -1,84 +1,73 @@
 import aiohttp
+import json
+from langchain_core.tools import BaseTool
+from typing import List, Tuple
 from config import config
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from servidor.engine.tool_processor import ToolProcessor
 
 class LLMClient:
     """
-    Cliente de API para interagir com o modelo Gemini.
-    Versão: 1.1.0 - Corrigido o ciclo de chamada de ferramenta para não reenviar as declarações na chamada recursiva.
+    Cliente para interagir com a API do Google Gemini.
+    Versão: 2.0.0 - Refatorado para usar um ToolProcessor externo para execução de ferramentas.
     """
     def __init__(self, session: aiohttp.ClientSession, tool_processor: ToolProcessor):
         self.session = session
-        self.tool_processor = tool_processor
+        self.tool_processor = tool_processor # Recebe o processador da sessão
 
-    async def call(self, model_name, prompt, tools_declarations=None, chat_history_context=None):
+    async def call(self, model_name: str, prompt: str, tools: List[BaseTool] = None) -> Tuple[str, List[dict]]:
         """
-        Envia um prompt para a API do LLM e lida com as chamadas de ferramentas.
-        A declaração de ferramentas só é enviada na primeira chamada do ciclo.
+        Envia um prompt para o modelo Gemini e retorna a resposta e as chamadas de função.
         """
-        if chat_history_context is None:
-            # Se não houver histórico, começa um novo com o prompt inicial.
-            chat_history_context = [{"role": "user", "parts": [{"text": prompt}]}]
-
-        # Monta o payload base com o conteúdo (histórico)
-        payload = {"contents": chat_history_context}
+        api_key = config.GEMINI_API_KEY
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
         
-        # Adiciona as ferramentas ao payload APENAS se elas forem fornecidas (na primeira chamada)
-        if tools_declarations:
-            payload["tools"] = tools_declarations
+        headers = {'Content-Type': 'application/json'}
+        
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "safetySettings": [
+                {"category": HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, "threshold": HarmBlockThreshold.BLOCK_NONE},
+                {"category": HarmCategory.HARM_CATEGORY_HARASSMENT, "threshold": HarmBlockThreshold.BLOCK_NONE},
+                {"category": HarmCategory.HARM_CATEGORY_HATE_SPEECH, "threshold": HarmBlockThreshold.BLOCK_NONE},
+                {"category": HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, "threshold": HarmBlockThreshold.BLOCK_NONE},
+            ]
+        }
 
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={config.GEMINI_API_KEY}"
+        # Adiciona as ferramentas à requisição se elas existirem
+        if tools:
+            payload["tools"] = [{"function_declarations": [t.get_schema() for t in tools]}]
 
         try:
-            async with self.session.post(api_url, json=payload, headers={'Content-Type': 'application/json'}) as response:
-                if not response.status == 200:
+            async with self.session.post(url, headers=headers, json=payload) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    # Extrai o conteúdo e as chamadas de função da resposta
+                    content = data.get("candidates", [{}])[0].get("content", {})
+                    text_response = content.get("parts", [{}])[0].get("text", "")
+                    function_calls = [part['functionCall'] for part in content.get("parts", []) if 'functionCall' in part]
+
+                    # Se houver chamadas de função, executa-as
+                    if function_calls:
+                        print(f"INFO: LLM solicitou a execução de {len(function_calls)} ferramenta(s)...")
+                        # O ToolProcessor já é da sessão correta, então não precisamos passar o session_name
+                        for call in function_calls:
+                            tool_name = call['name']
+                            tool_args = call.get('args', {})
+                            
+                            # Encontra a ferramenta correta no processador e a executa
+                            found_tool = next((t for t in self.tool_processor.get_tools() if t.name == tool_name), None)
+                            if found_tool:
+                                found_tool.run(tool_args)
+                            else:
+                                print(f"ERRO: Ferramenta '{tool_name}' solicitada pelo LLM mas não encontrada no ToolProcessor.")
+
+                    return text_response, function_calls
+                else:
                     error_text = await response.text()
-                    print(f"ERRO: Falha na API do LLM com status {response.status}: {error_text}")
-                    # Retorna a mensagem de erro da API se disponível, para melhor depuração
-                    return f"Uma interferência cósmica impede a clareza. Erro da API: {error_text}", {}
-                
-                result = await response.json()
-                
-                # Verifica se a resposta do candidato está vazia ou malformada
-                if not result.get("candidates") or not result["candidates"][0].get("content"):
-                    # Se houver um prompt de bloqueio, a razão estará em 'promptFeedback'
-                    feedback = result.get("promptFeedback", {})
-                    block_reason = feedback.get("blockReason", "desconhecida")
-                    if block_reason != "SAFETY":
-                        print(f"AVISO: A resposta do LLM estava vazia. Verifique a resposta completa: {result}")
-                    return f"O LLM parece estar em silêncio... (Razão do bloqueio: {block_reason})", result
-
-                parts = result["candidates"][0]["content"]["parts"]
-                tool_calls = [part for part in parts if "functionCall" in part]
-
-                # Se não houver chamadas de ferramenta, a conversa terminou. Retorna o texto.
-                if not tool_calls:
-                    return (parts[0].get("text") or "").strip(), result
-
-                # Se houver chamadas de ferramenta, processa-as.
-                print(f"INFO: LLM solicitou a execução de {len(tool_calls)} ferramenta(s)...")
-                tool_responses = await self.tool_processor.process(tool_calls)
-                
-                # Adiciona o turno da IA (com as chamadas de ferramenta) e o nosso turno (com os resultados) ao histórico
-                chat_history_context.append({"role": "model", "parts": tool_calls})
-                chat_history_context.append({"role": "user", "parts": tool_responses})
-                
-                # Chama recursivamente a função, mas desta vez SEM as declarações de ferramentas.
-                # O prompt original não é mais necessário, pois o histórico contém toda a conversa.
-                return await self.call(model_name, prompt=None, tools_declarations=None, chat_history_context=chat_history_context)
-
+                    print(f"Erro na API Gemini ({response.status}): {error_text}")
+                    return "Houve uma interferência cósmica e a resposta se perdeu.", []
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return f"Uma interferência cósmica impede a clareza. Erro interno: {e}", {}
-
-"""
-### Resumo da Correção
-
-1.  **Parâmetro Opcional:** O parâmetro `tools_declarations` na função `call` agora é opcional.
-2.  **Payload Condicional:** A chave `"tools"` só é adicionada ao `payload` da requisição se `tools_declarations` for fornecido.
-3.  **Chamada Recursiva Limpa:** Na chamada recursiva, `tools_declarations` é explicitamente passado como `None`, garantindo que a lista de ferramentas não seja enviada novamente.
-4.  **Melhoria nos Logs de Erro:** Adicionei uma depuração melhor para quando a API retorna um erro ou uma resposta vazia, o que ajudará a identificar problemas futuros mais rapidamente.
-
-Com esta alteração, o ciclo de chamada de ferramentas seguirá o fluxo correto esperado pela API do Gemini, e o erro 400 não deve mais ocorr
-"""
+            print(f"Exceção ao chamar a API Gemini: {e}")
+            return "Houve uma interferência cósmica e a conexão falhou.", []
