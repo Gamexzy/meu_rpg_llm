@@ -1,6 +1,9 @@
+# servidor/engine/tool_processor.py
 import inspect
+import json
 from functools import partial
-from langchain_core.tools import BaseTool, StructuredTool
+from typing import List
+from langchain_core.tools import BaseTool
 from servidor.data_managers.data_manager import DataManager
 from servidor.data_managers.chromadb_manager import ChromaDBManager
 from servidor.data_managers.neo4j_manager import Neo4jManager
@@ -8,57 +11,66 @@ from servidor.data_managers.neo4j_manager import Neo4jManager
 class ToolProcessor:
     """
     Coleta, prepara e executa as ferramentas para uma sessão de jogo específica.
-    Versão: 3.6.0 - Corrigida a execução da ferramenta para evitar o erro do argumento 'self'.
+    Versão: 4.1.0 - Adiciona pré-processamento de argumentos para converter strings JSON em dicionários.
     """
     def __init__(self, data_manager: DataManager, chromadb_manager: ChromaDBManager, neo4j_manager: Neo4jManager):
-        self.data_manager = data_manager
-        self.chromadb_manager = chromadb_manager
-        self.neo4j_manager = neo4j_manager
-        self.tools = self._discover_and_prepare_tools()
-        self.tool_map = {t.name: t for t in self.tools}
+        self.managers = {'data_manager': data_manager, 'chromadb_manager': chromadb_manager, 'neo4j_manager': neo4j_manager}
+        self.tools = self._discover_tools()
+        print(f"INFO: {len(self.tools)} ferramentas preparadas para o motor de jogo.")
 
-    def _discover_and_prepare_tools(self):
-        """Descobre todos os métodos marcados como '@tool' e prepara-os para a sessão."""
-        discovered_tools = []
-        managers = [self.data_manager, self.chromadb_manager, self.neo4j_manager]
+    def _discover_tools(self) -> List[BaseTool]:
+        """Descobre e retorna todas as ferramentas dos managers."""
+        tools = []
+        for manager in self.managers.values():
+            for name, method in inspect.getmembers(manager, predicate=inspect.ismethod):
+                if hasattr(method, "is_tool") and method.is_tool:
+                    tools.append(method.tool_instance)
+        return tools
 
-        for manager in managers:
-            for name, member in inspect.getmembers(manager):
-                if isinstance(member, BaseTool):
-                    if manager is self.neo4j_manager:
-                        original_function = member.func
-                        session_bound_function = partial(original_function, self.neo4j_manager, session_name=self.data_manager.session_name)
-                        session_bound_function.__doc__ = original_function.__doc__
-                        new_tool = StructuredTool.from_function(
-                            func=session_bound_function,
-                            name=member.name,
-                            description=member.description,
-                            args_schema=member.args_schema
-                        )
-                        discovered_tools.append(new_tool)
-                    else:
-                        discovered_tools.append(member)
-
-        print(f"INFO: {len(discovered_tools)} ferramentas preparadas para o motor de jogo.")
-        return discovered_tools
-
-    def get_tools(self) -> list:
-        """Retorna a lista de todas as ferramentas disponíveis para o LLM nesta sessão."""
+    def get_tools(self) -> List[BaseTool]:
+        """Retorna a lista de ferramentas prontas para serem usadas pela IA."""
         return self.tools
 
-    def execute_tool(self, tool_name: str, tool_args: dict):
-        """Encontra e executa uma ferramenta pelo nome com os argumentos fornecidos."""
-        if tool_name in self.tool_map:
-            print(f"\033[1;33m--- Executando Ferramenta: {tool_name} com args: {tool_args} ---\033[0m")
-            try:
-                # CORREÇÃO: Usamos o .invoke() que lida melhor com os argumentos do que o .run()
-                result = self.tool_map[tool_name].invoke(tool_args)
-                print(f"\033[1;32m--- Resultado: {result} ---\033[0m")
-                return result
-            except Exception as e:
-                print(f"\033[1;31mERRO ao executar a ferramenta '{tool_name}': {e}\033[0m")
-                return f"Erro ao executar a ferramenta: {e}"
-        else:
-            print(f"\033[1;31mERRO: Ferramenta '{tool_name}' não encontrada.\033[0m")
-            return f"Ferramenta '{tool_name}' não encontrada."
+    def execute_tool_calls(self, tool_calls: List[dict]):
+        """
+        Executa uma lista de chamadas de ferramentas solicitadas pela IA.
+        """
+        if not tool_calls:
+            print("--- Nenhuma ação estrutural foi necessária. ---")
+            return
 
+        print(f"--- Arquiteto do Mundo solicitou {len(tool_calls)} ações. Executando... ---")
+        for call in tool_calls:
+            tool_name = call.get('name')
+            tool_args = call.get('args', {})
+            
+            # Encontra a ferramenta correspondente na lista
+            tool_to_execute = next((t for t in self.tools if t.name == tool_name), None)
+
+            if tool_to_execute:
+                # --- LÓGICA DE CORREÇÃO E LIMPEZA DOS ARGUMENTOS ---
+                sanitized_args = {}
+                for key, value in tool_args.items():
+                    # 1. Ignora o argumento 'self' se a IA o enviar por engano
+                    if key == 'self':
+                        continue
+                    # 2. Converte strings que parecem JSON em dicionários
+                    if isinstance(value, str) and ('_data' in key or '_json' in key):
+                        try:
+                            sanitized_args[key] = json.loads(value)
+                        except json.JSONDecodeError:
+                            print(f"AVISO: Não foi possível converter o argumento '{key}' para JSON. Usando como string.")
+                            sanitized_args[key] = value
+                    else:
+                        sanitized_args[key] = value
+                # --- FIM DA LÓGICA DE CORREÇÃO ---
+                
+                print(f"--- Executando Ferramenta: {tool_name} com args: {sanitized_args} ---")
+                try:
+                    # Executa a ferramenta com os argumentos limpos
+                    result = tool_to_execute.invoke(sanitized_args)
+                    print(f"--- Resultado: {result} ---")
+                except Exception as e:
+                    print(f"ERRO ao executar a ferramenta '{tool_name}': {e}")
+            else:
+                print(f"AVISO: Ferramenta '{tool_name}' solicitada pela IA, mas não encontrada.")
