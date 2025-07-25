@@ -4,6 +4,7 @@ import sys
 import traceback
 import re
 import sqlite3
+import uuid  # Importa a biblioteca para gerar IDs únicos
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -21,7 +22,7 @@ from servidor.engine.tool_processor import ToolProcessor
 from servidor.engine.game_engine import GameEngine
 
 # --- CONFIGURAÇÃO DE VERSÃO ---
-SERVER_VERSION = "1.3.0" # Atualizado para refletir as mudanças síncronas
+SERVER_VERSION = "2.3.0" # ID canónico do jogador agora é único por sessão para evitar colisões.
 MINIMUM_CLIENT_VERSION = "1.1"
 
 # --- GERENCIADOR DE SESSÕES ---
@@ -59,7 +60,7 @@ def get_or_create_game_engine(session_name: str):
     
     data_manager = DataManager(session_name)
     chromadb_manager = ChromaDBManager(session_name)
-    neo4j_manager = Neo4jManager()
+    neo4j_manager = Neo4jManager() # Não precisa de session_name aqui
     context_builder = ContextBuilder(data_manager, chromadb_manager)
     tool_processor = ToolProcessor(data_manager, chromadb_manager, neo4j_manager)
     
@@ -69,12 +70,12 @@ def get_or_create_game_engine(session_name: str):
     return game_engine
 
 def sanitize_session_name(name: str) -> str:
-    """Limpa e formata um nome para ser usado como nome de arquivo de sessão e coleção."""
+    """Limpa e formata um nome para ser usado como parte do nome de arquivo de sessão."""
     name = name.lower().strip()
     name = re.sub(r'\s+', '_', name)
     name = re.sub(r'[^\w-]', '', name)
     name = name.strip('_-')
-    return name[:50] or "sessao_sem_nome"
+    return name[:20] or "personagem"
 
 # --- ENDPOINTS DA API ---
 
@@ -114,18 +115,37 @@ def create_session():
     if not char_name or not world_concept:
         return jsonify({"error": "Nome do personagem e conceito do mundo são obrigatórios."}), 400
 
-    session_name = sanitize_session_name(char_name)
-    db_path = os.path.join(config.PROD_DATA_DIR, f"{session_name}.db")
+    sanitized_char_name = sanitize_session_name(char_name)
+    unique_id = uuid.uuid4().hex[:6]
+    session_name = f"{sanitized_char_name}_{unique_id}"
 
-    if os.path.exists(db_path):
-        return jsonify({"error": f"Uma sessão com o nome '{session_name}' já existe."}), 409
+    db_path = os.path.join(config.PROD_DATA_DIR, f"{session_name}.db")
+    while os.path.exists(db_path):
+        unique_id = uuid.uuid4().hex[:6]
+        session_name = f"{sanitized_char_name}_{unique_id}"
+        db_path = os.path.join(config.PROD_DATA_DIR, f"{session_name}.db")
 
     try:
         game_engine = get_or_create_game_engine(session_name)
-        initial_action = f"Crie um personagem chamado {char_name}. O conceito do mundo é: {world_concept}"
         
-        # Chamada síncrona
-        narrative = game_engine.execute_turn(initial_action)
+        # --- NOVO: Define um id_canonico único para o jogador e passa na instrução ---
+        player_id_canonico = f"pj_{session_name}"
+        
+        world_building_prompt = f"""
+        META-INSTRUÇÃO DE CONSTRUÇÃO DE MUNDO:
+        - Nome do Personagem Principal: {char_name}
+        - Conceito Inicial do Mundo e Personagem: {world_concept}
+        
+        TAREFA: Como Mestre de Jogo e Arquiteto do Mundo, a sua tarefa é criar o cenário inicial para esta nova saga.
+        Primeiro, o Arquiteto do Mundo deve planejar e executar as seguintes ações na ordem correta:
+        1. Criar um local inicial criativo com base no 'Conceito Inicial'.
+        2. Criar o personagem jogador com o nome '{char_name}'. O id_canonico do jogador DEVE SER EXATAMENTE '{player_id_canonico}'. Coloque-o no local que acabou de criar.
+        3. Adicionar uma ou duas habilidades, conhecimentos ou itens iniciais ao jogador que façam sentido no contexto.
+        
+        Depois que o Arquiteto do Mundo preparar o cenário, o Mestre de Jogo deve escrever a narrativa de abertura.
+        """
+        
+        narrative = game_engine.execute_turn(world_building_prompt)
         
         return jsonify({
             "message": "Sessão criada com sucesso!",
@@ -143,7 +163,6 @@ def execute_turn_route(session_name: str):
         game_engine = get_or_create_game_engine(session_name)
         player_action = request.json['player_action']
         
-        # Chamada síncrona
         narrative = game_engine.execute_turn(player_action)
         return jsonify({"narrative": narrative})
     except Exception as e:

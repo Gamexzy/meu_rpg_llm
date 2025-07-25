@@ -4,13 +4,82 @@ import json
 import os
 import datetime
 from langchain.tools import tool
-from typing import Optional, Dict
+from pydantic.v1 import BaseModel, Field
+from typing import Optional, Dict, List
+
 from config import config
+
+# --- Modelos Pydantic para Validação de Ferramentas ---
+
+class AddOrGetLocationArgs(BaseModel):
+    id_canonico: str = Field(description="ID canónico único do local (ex: 'estacao_alfa', 'planeta_gaia').")
+    nome: str = Field(description="Nome legível do local.")
+    tipo: str = Field(description="Tipo do local (STRING LIVRE, ex: 'Estação Espacial', 'Planeta', 'Sala').")
+    perfil_json_data: Optional[Dict] = Field(None, description="Dados adicionais do local em formato de dicionário (ex: {'descricao': 'Um hub de comércio.'}).")
+    parent_id_canonico: Optional[str] = Field(None, description="ID canónico do local pai, se houver (ex: uma sala dentro de uma estação).")
+
+class AddOrGetPlayerArgs(BaseModel):
+    id_canonico: str = Field(description="ID canónico único e criativo para o jogador (ex: 'pj_kael_o_explorador').")
+    nome: str = Field(description="Nome do jogador.")
+    local_inicial_id_canonico: str = Field(description="ID canónico do local onde o jogador inicia.")
+    perfil_completo_data: Dict = Field(description="Dados completos do perfil do jogador em formato de dicionário (ex: {'raca': 'Humano', 'ocupacao': 'Explorador'}).")
+
+class AddPlayerVitalsArgs(BaseModel):
+    jogador_id_canonico: str = Field(description="ID canónico do jogador.")
+    fome: str = Field("Normal", description="Nível de fome (ex: 'Normal', 'Com Fome').")
+    sede: str = Field("Normal", description="Nível de sede (ex: 'Normal', 'Com Sede').")
+    cansaco: str = Field("Descansado", description="Nível de cansaço (ex: 'Descansado', 'Fadigado').")
+    humor: str = Field("Neutro", description="Estado de humor (ex: 'Neutro', 'Curioso').")
+    motivacao: str = Field("Neutro", description="Nível de motivação (ex: 'Neutro', 'Motivado').")
+
+class AddPlayerSkillArgs(BaseModel):
+    jogador_id_canonico: str = Field(description="ID canónico do jogador.")
+    categoria: str = Field(description="Categoria da habilidade (ex: 'Exploração', 'Combate').")
+    nome: str = Field(description="Nome da habilidade (ex: 'Navegação Espacial', 'Tiro Preciso').")
+    nivel_subnivel: Optional[str] = Field(None, description="Nível ou subnível da habilidade (ex: 'Novato', 'Avançado').")
+    observacoes: Optional[str] = Field(None, description="Observações adicionais sobre a habilidade.")
+
+class AddPlayerKnowledgeArgs(BaseModel):
+    jogador_id_canonico: str = Field(description="ID canónico do jogador.")
+    categoria: str = Field(description="Categoria do conhecimento (ex: 'Ciência', 'História').")
+    nome: str = Field(description="Nome do conhecimento (ex: 'Anomalias Gravitacionais', 'Cultura Antiga').")
+    nivel: int = Field(1, description="Nível do conhecimento (1-5).")
+    descricao: Optional[str] = Field(None, description="Descrição detalhada do conhecimento.")
+
+class AddOrGetPlayerPossessionArgs(BaseModel):
+    jogador_id_canonico: str = Field(description="ID canónico do jogador.")
+    item_nome: str = Field(description="Nome do item (ex: 'Kit de Sobrevivência').")
+    posse_id_canonico: str = Field(description="ID canónico único da posse (ex: 'kit_sobrevivencia_gabriel').")
+    perfil_json_data: Optional[Dict] = Field(None, description="Dados adicionais da posse em formato de dicionário (ex: {'estado': 'novo'}).")
+
+class UpdatePlayerLocationArgs(BaseModel):
+    player_canonical_id: str = Field(description="ID canónico do jogador.")
+    new_local_canonical_id: str = Field(description="ID canónico do novo local do jogador.")
+
+class AddUniversalRelationArgs(BaseModel):
+    origem_id_canonico: str = Field(description="ID canónico da entidade de origem.")
+    origem_tipo_tabela: str = Field(description="Nome da tabela da entidade de origem (ex: 'personagens', 'locais').")
+    tipo_relacao: str = Field(description="Tipo da relação (ex: 'AFILIADO_A', 'CONTROLA').")
+    destino_id_canonico: str = Field(description="ID canónico da entidade de destino.")
+    destino_tipo_tabela: str = Field(description="Nome da tabela da entidade de destino (ex: 'faccoes', 'elementos_universais').")
+    propriedades_data: Optional[Dict] = Field(None, description="Dados adicionais da relação em formato de dicionário (ex: {'intensidade': 0.8}).")
+
+class AddOrGetPersonagemArgs(BaseModel):
+    id_canonico: str = Field(description="ID canónico único do personagem.")
+    nome: str = Field(description="Nome legível do personagem.")
+    tipo: str = Field(description="Tipo do personagem (STRING LIVRE, ex: 'Comerciante Itinerante', 'Cientista Rebelde').")
+    perfil_json_data: Optional[Dict] = Field(None, description="Dados adicionais do personagem em dicionário.")
+
+class AddLogMemoryArgs(BaseModel):
+    jogador_id_canonico: str = Field(description="ID canónico do jogador.")
+    tipo: str = Field(description="Tipo de log (ex: 'log_evento', 'memoria_consolidada').")
+    conteudo: str = Field(description="Conteúdo do log ou memória.")
+
 
 class DataManager:
     """
     Gerencia todas as interações com o banco de dados SQLite para uma sessão de jogo específica.
-    Versão: 7.3.0 - Reforçadas as assinaturas de tipo das ferramentas para maior robustez com Pydantic.
+    Versão: 8.1.0 - Restauradas as funções auxiliares de consulta de hierarquia de locais.
     """
     def __init__(self, session_name: str, supress_success_message=False):
         os.makedirs(config.PROD_DATA_DIR, exist_ok=True)
@@ -19,7 +88,7 @@ class DataManager:
         if not os.path.exists(self.db_path):
             raise FileNotFoundError(f"A base de dados para a sessão '{session_name}' não foi encontrada.")
         if not supress_success_message:
-            print(f"DataManager (v7.3.0) conectado com sucesso à sessão: {self.session_name} ({self.db_path})")
+            print(f"DataManager v8.1.0 conectado com sucesso à sessão: {self.session_name} ({self.db_path})")
 
     def _get_connection(self):
         try:
@@ -33,7 +102,7 @@ class DataManager:
 
     # --- Funções de Leitura (Não são ferramentas, são usadas internamente) ---
 
-    def get_entity_details_by_canonical_id(self, table_name, canonical_id):
+    def get_entity_details_by_canonical_id(self, table_name: str, canonical_id: str):
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -42,7 +111,7 @@ class DataManager:
                     'jogador_posses', 'itens'
                 ]
                 if table_name not in tabelas_validas:
-                    raise ValueError(f"Nome de tabela inválido ou não suportado para busca por ID canônico: '{table_name}'.")
+                    raise ValueError(f"Nome de tabela inválido: '{table_name}'.")
                 
                 query = f"SELECT * FROM {table_name} WHERE id_canonico = ?"
                 cursor.execute(query, (canonical_id,))
@@ -53,7 +122,7 @@ class DataManager:
             print(f"Erro ao buscar entidade '{canonical_id}' em '{table_name}': {e}")
             return None
             
-    def get_all_entities_from_table(self, table_name):
+    def get_all_entities_from_table(self, table_name: str):
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -117,161 +186,252 @@ class DataManager:
             print(f"Erro ao buscar o estado completo do jogador: {e}")
             return None
 
+    # --- NOVAS FUNÇÕES AUXILIARES RESTAURADAS ---
+
+    def get_ancestors(self, local_id_numeric: int) -> List[Dict]:
+        """Retorna a cadeia de ancestrais de um local pelo seu ID numérico."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                query = """
+                    WITH RECURSIVE get_ancestors(id, id_canonico, nome, tipo, parent_id, nivel) AS (
+                        SELECT id, id_canonico, nome, tipo, parent_id, 0 FROM locais WHERE id = ?
+                        UNION ALL
+                        SELECT l.id, l.id_canonico, l.nome, l.tipo, l.parent_id, ga.nivel + 1
+                        FROM locais l JOIN get_ancestors ga ON l.id = ga.parent_id
+                    )
+                    SELECT ga.id, ga.id_canonico, ga.nome, ga.tipo, ga.nivel
+                    FROM get_ancestors ga
+                    ORDER BY nivel DESC;
+                """
+                cursor.execute(query, (local_id_numeric,))
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar ancestrais para o local ID {local_id_numeric}: {e}")
+            return []
+
+    def get_children(self, local_id_numeric: int) -> List[Dict]:
+        """Retorna os filhos diretos de um local (o que está contido nele)."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                query = "SELECT l.id, l.id_canonico, l.nome, l.tipo FROM locais l WHERE l.parent_id = ?;"
+                cursor.execute(query, (local_id_numeric,))
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar filhos para o local ID {local_id_numeric}: {e}")
+            return []
+
+    def get_direct_accesses(self, local_id_numeric: int) -> List[Dict]:
+        """Retorna locais acessíveis diretamente a partir de um local."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                query = """
+                    SELECT l.id, l.id_canonico, l.nome, l.tipo, lad.tipo_acesso, lad.condicoes_acesso
+                    FROM locais_acessos_diretos lad
+                    JOIN locais l ON lad.local_destino_id = l.id
+                    WHERE lad.local_origem_id = ?;
+                """
+                cursor.execute(query, (local_id_numeric,))
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar acessos diretos para o local ID {local_id_numeric}: {e}")
+            return []
+
+    def get_siblings(self, local_id_numeric: int) -> List[Dict]:
+        """Retorna os locais 'vizinhos' (que partilham o mesmo pai)."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT parent_id FROM locais WHERE id = ?", (local_id_numeric,))
+                res = cursor.fetchone()
+                if not res or res['parent_id'] is None:
+                    return []
+                
+                parent_id = res['parent_id']
+                query = "SELECT l.id, l.id_canonico, l.nome, l.tipo FROM locais l WHERE l.parent_id = ? AND l.id != ?;"
+                cursor.execute(query, (parent_id, local_id_numeric))
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            print(f"Erro ao buscar vizinhos para o local ID {local_id_numeric}: {e}")
+            return []
+
     # --- FERRAMENTAS (WRITE) EXPOSTAS PARA O LLM ---
 
-    @tool
-    def add_or_get_location(self, id_canonico: str, nome: str, tipo: str, perfil_json_data: Optional[Dict] = None, parent_id_canonico: Optional[str] = None) -> int:
+    @tool(args_schema=AddOrGetLocationArgs)
+    def add_or_get_location(self, **kwargs) -> int:
         """
         Cria um novo local (planeta, estação, sala) ou obtém o ID de um local existente. É idempotente.
         Use esta ferramenta para estabelecer a existência de qualquer lugar no universo do jogo.
         """
+        args = AddOrGetLocationArgs(**kwargs)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM locais WHERE id_canonico = ?", (id_canonico,))
+            cursor.execute("SELECT id FROM locais WHERE id_canonico = ?", (args.id_canonico,))
             existing = cursor.fetchone()
             if existing:
                 return existing['id']
             
             parent_id_numerico = None
-            if parent_id_canonico:
-                cursor.execute("SELECT id FROM locais WHERE id_canonico = ?", (parent_id_canonico,))
+            if args.parent_id_canonico:
+                cursor.execute("SELECT id FROM locais WHERE id_canonico = ?", (args.parent_id_canonico,))
                 parent_loc = cursor.fetchone()
                 if parent_loc:
                     parent_id_numerico = parent_loc['id']
             
-            perfil_json_str = json.dumps(perfil_json_data) if perfil_json_data else None
+            perfil_json_str = json.dumps(args.perfil_json_data) if args.perfil_json_data else None
             query = "INSERT INTO locais (id_canonico, nome, tipo, perfil_json, parent_id) VALUES (?, ?, ?, ?, ?)"
-            cursor.execute(query, (id_canonico, nome, tipo, perfil_json_str, parent_id_numerico))
+            cursor.execute(query, (args.id_canonico, args.nome, args.tipo, perfil_json_str, parent_id_numerico))
+            conn.commit()
             return cursor.lastrowid
 
-    @tool
-    def add_or_get_player(self, id_canonico: str, nome: str, local_inicial_id_canonico: str, perfil_completo_data: Dict) -> int:
+    @tool(args_schema=AddOrGetPlayerArgs)
+    def add_or_get_player(self, **kwargs) -> int:
         """Cria o personagem jogador principal se ele não existir, associando-o a um local inicial."""
+        args = AddOrGetPlayerArgs(**kwargs)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM jogador WHERE id_canonico = ?", (id_canonico,))
+            cursor.execute("SELECT id FROM jogador WHERE id_canonico = ?", (args.id_canonico,))
             if cursor.fetchone():
-                return self.get_entity_details_by_canonical_id('jogador', id_canonico)['id']
+                return self.get_entity_details_by_canonical_id('jogador', args.id_canonico)['id']
 
-            cursor.execute("SELECT id FROM locais WHERE id_canonico = ?", (local_inicial_id_canonico,))
+            cursor.execute("SELECT id FROM locais WHERE id_canonico = ?", (args.local_inicial_id_canonico,))
             local_res = cursor.fetchone()
             if not local_res:
-                raise ValueError(f"Local inicial '{local_inicial_id_canonico}' não encontrado.")
+                raise ValueError(f"Local inicial '{args.local_inicial_id_canonico}' não encontrado.")
             
             local_inicial_id_numerico = local_res['id']
-            perfil_json_str = json.dumps(perfil_completo_data)
+            perfil_json_str = json.dumps(args.perfil_completo_data)
             
             cursor.execute("INSERT INTO jogador (id_canonico, nome, local_atual_id, perfil_completo_json) VALUES (?, ?, ?, ?)",
-                           (id_canonico, nome, local_inicial_id_numerico, perfil_json_str))
+                           (args.id_canonico, args.nome, local_inicial_id_numerico, perfil_json_str))
+            conn.commit()
             return cursor.lastrowid
 
-    @tool
-    def add_player_vitals(self, jogador_id_canonico: str, fome: str = "Normal", sede: str = "Normal", cansaco: str = "Descansado", humor: str = "Neutro", motivacao: str = "Neutro") -> bool:
+    @tool(args_schema=AddPlayerVitalsArgs)
+    def add_player_vitals(self, **kwargs) -> bool:
         """Adiciona ou atualiza os status vitais (fome, sede, etc.) do jogador."""
+        args = AddPlayerVitalsArgs(**kwargs)
         timestamp_atual = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
+            player_res = self.get_entity_details_by_canonical_id('jogador', args.jogador_id_canonico)
             if not player_res: return False
             player_db_id = player_res['id']
             
             cursor.execute("SELECT id FROM jogador_status_fisico_emocional WHERE jogador_id = ?", (player_db_id,))
             if cursor.fetchone():
                 query = "UPDATE jogador_status_fisico_emocional SET fome = ?, sede = ?, cansaco = ?, humor = ?, motivacao = ?, timestamp_atual = ? WHERE jogador_id = ?;"
-                cursor.execute(query, (fome, sede, cansaco, humor, motivacao, timestamp_atual, player_db_id))
+                cursor.execute(query, (args.fome, args.sede, args.cansaco, args.humor, args.motivacao, timestamp_atual, player_db_id))
             else:
                 query = "INSERT INTO jogador_status_fisico_emocional (jogador_id, fome, sede, cansaco, humor, motivacao, timestamp_atual) VALUES (?, ?, ?, ?, ?, ?, ?);"
-                cursor.execute(query, (player_db_id, fome, sede, cansaco, humor, motivacao, timestamp_atual))
+                cursor.execute(query, (player_db_id, args.fome, args.sede, args.cansaco, args.humor, args.motivacao, timestamp_atual))
+            conn.commit()
             return True
 
-    @tool
-    def add_player_skill(self, jogador_id_canonico: str, categoria: str, nome: str, nivel_subnivel: Optional[str] = None, observacoes: Optional[str] = None) -> bool:
+    @tool(args_schema=AddPlayerSkillArgs)
+    def add_player_skill(self, **kwargs) -> bool:
         """Adiciona uma nova habilidade (ex: 'Combate', 'Tiro Preciso') ao jogador. Ignora se já existir."""
+        args = AddPlayerSkillArgs(**kwargs)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
+            player_res = self.get_entity_details_by_canonical_id('jogador', args.jogador_id_canonico)
             if not player_res: return False
             player_db_id = player_res['id']
             cursor.execute("INSERT OR IGNORE INTO jogador_habilidades (jogador_id, categoria, nome, nivel_subnivel, observacoes) VALUES (?, ?, ?, ?, ?)",
-                           (player_db_id, categoria, nome, nivel_subnivel, observacoes))
+                           (player_db_id, args.categoria, args.nome, args.nivel_subnivel, args.observacoes))
+            conn.commit()
             return cursor.rowcount > 0
 
-    @tool
-    def add_player_knowledge(self, jogador_id_canonico: str, categoria: str, nome: str, nivel: int = 1, descricao: Optional[str] = None) -> bool:
+    @tool(args_schema=AddPlayerKnowledgeArgs)
+    def add_player_knowledge(self, **kwargs) -> bool:
         """Adiciona um novo conhecimento (ex: 'Ciência', 'Cultura Antiga') ao jogador. Ignora se já existir."""
+        args = AddPlayerKnowledgeArgs(**kwargs)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
+            player_res = self.get_entity_details_by_canonical_id('jogador', args.jogador_id_canonico)
             if not player_res: return False
             player_db_id = player_res['id']
             cursor.execute("INSERT OR IGNORE INTO jogador_conhecimentos (jogador_id, categoria, nome, nivel, descricao) VALUES (?, ?, ?, ?, ?)",
-                           (player_db_id, categoria, nome, nivel, descricao))
+                           (player_db_id, args.categoria, args.nome, args.nivel, args.descricao))
+            conn.commit()
             return cursor.rowcount > 0
 
-    @tool
-    def add_or_get_player_possession(self, jogador_id_canonico: str, item_nome: str, posse_id_canonico: str, perfil_json_data: Optional[Dict] = None) -> int:
+    @tool(args_schema=AddOrGetPlayerPossessionArgs)
+    def add_or_get_player_possession(self, **kwargs) -> int:
         """Adiciona um item ao inventário do jogador, como um 'traje espacial' ou uma 'arma'."""
+        args = AddOrGetPlayerPossessionArgs(**kwargs)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM jogador_posses WHERE id_canonico = ?", (posse_id_canonico,))
+            cursor.execute("SELECT id FROM jogador_posses WHERE id_canonico = ?", (args.posse_id_canonico,))
             if cursor.fetchone():
-                return self.get_entity_details_by_canonical_id('jogador_posses', posse_id_canonico)['id']
+                return self.get_entity_details_by_canonical_id('jogador_posses', args.posse_id_canonico)['id']
 
-            player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
+            player_res = self.get_entity_details_by_canonical_id('jogador', args.jogador_id_canonico)
             if not player_res: return None
             player_db_id = player_res['id']
             
-            perfil_json_str = json.dumps(perfil_json_data) if perfil_json_data else None
+            perfil_json_str = json.dumps(args.perfil_json_data) if args.perfil_json_data else None
             cursor.execute("INSERT INTO jogador_posses (id_canonico, jogador_id, item_nome, perfil_json) VALUES (?, ?, ?, ?)",
-                           (posse_id_canonico, player_db_id, item_nome, perfil_json_str))
+                           (args.posse_id_canonico, player_db_id, args.item_nome, perfil_json_str))
+            conn.commit()
             return cursor.lastrowid
 
-    @tool
-    def update_player_location(self, player_canonical_id: str, new_local_canonical_id: str) -> bool:
+    @tool(args_schema=UpdatePlayerLocationArgs)
+    def update_player_location(self, **kwargs) -> bool:
         """Move o jogador para um novo local."""
+        args = UpdatePlayerLocationArgs(**kwargs)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            local_res = self.get_entity_details_by_canonical_id('locais', new_local_canonical_id)
+            local_res = self.get_entity_details_by_canonical_id('locais', args.new_local_canonical_id)
             if not local_res: return False
             new_local_id = local_res['id']
-            cursor.execute("UPDATE jogador SET local_atual_id = ? WHERE id_canonico = ?", (new_local_id, player_canonical_id))
+            cursor.execute("UPDATE jogador SET local_atual_id = ? WHERE id_canonico = ?", (new_local_id, args.player_canonical_id))
+            conn.commit()
             return cursor.rowcount > 0
 
-    @tool
-    def add_universal_relation(self, origem_id_canonico: str, origem_tipo_tabela: str, tipo_relacao: str, destino_id_canonico: str, destino_tipo_tabela: str, propriedades_data: Optional[Dict] = None) -> int:
+    @tool(args_schema=AddUniversalRelationArgs)
+    def add_universal_relation(self, **kwargs) -> int:
         """Cria uma relação genérica entre quaisquer duas entidades (ex: Gabriel 'MEMBRO_DE' Frota Estelar)."""
+        args = AddUniversalRelationArgs(**kwargs)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            propriedades_json_str = json.dumps(propriedades_data) if propriedades_data else None
+            propriedades_json_str = json.dumps(args.propriedades_data) if args.propriedades_data else None
             query = "INSERT OR IGNORE INTO relacoes_entidades (entidade_origem_id, entidade_origem_tipo, tipo_relacao, entidade_destino_id, entidade_destino_tipo, propriedades_json) VALUES (?, ?, ?, ?, ?, ?);"
-            cursor.execute(query, (origem_id_canonico, origem_tipo_tabela, tipo_relacao, destino_id_canonico, destino_tipo_tabela, propriedades_json_str))
+            cursor.execute(query, (args.origem_id_canonico, args.origem_tipo_tabela, args.tipo_relacao, args.destino_id_canonico, args.destino_tipo_tabela, propriedades_json_str))
+            conn.commit()
             return cursor.lastrowid
 
-    @tool
-    def add_or_get_personagem(self, id_canonico: str, nome: str, tipo: str, perfil_json_data: Optional[Dict] = None) -> int:
+    @tool(args_schema=AddOrGetPersonagemArgs)
+    def add_or_get_personagem(self, **kwargs) -> int:
         """Cria um novo personagem (NPC) se ele não existir."""
+        args = AddOrGetPersonagemArgs(**kwargs)
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM personagens WHERE id_canonico = ?", (id_canonico,))
+            cursor.execute("SELECT id FROM personagens WHERE id_canonico = ?", (args.id_canonico,))
             if cursor.fetchone():
-                return self.get_entity_details_by_canonical_id('personagens', id_canonico)['id']
+                return self.get_entity_details_by_canonical_id('personagens', args.id_canonico)['id']
 
-            perfil_json_str = json.dumps(perfil_json_data) if perfil_json_data else None
+            perfil_json_str = json.dumps(args.perfil_json_data) if args.perfil_json_data else None
             query = "INSERT INTO personagens (id_canonico, nome, tipo, perfil_json) VALUES (?, ?, ?, ?)"
-            cursor.execute(query, (id_canonico, nome, tipo, perfil_json_str))
+            cursor.execute(query, (args.id_canonico, args.nome, args.tipo, perfil_json_str))
+            conn.commit()
             return cursor.lastrowid
             
-    @tool
-    def add_log_memory(self, jogador_id_canonico: str, tipo: str, conteudo: str) -> int:
+    @tool(args_schema=AddLogMemoryArgs)
+    def add_log_memory(self, **kwargs) -> int:
         """Adiciona um novo registro de log de evento ou memória consolidada para o jogador."""
+        args = AddLogMemoryArgs(**kwargs)
         timestamp_evento = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
+            player_res = self.get_entity_details_by_canonical_id('jogador', args.jogador_id_canonico)
             if not player_res:
-                print(f"ERRO: Jogador '{jogador_id_canonico}' não encontrado. Log não pode ser adicionado.")
+                print(f"ERRO: Jogador '{args.jogador_id_canonico}' não encontrado. Log não pode ser adicionado.")
                 return None
             player_db_id = player_res['id']
             query = "INSERT INTO jogador_logs_memoria (jogador_id, tipo, conteudo, timestamp_evento) VALUES (?, ?, ?, ?);"
-            cursor.execute(query, (player_db_id, tipo, conteudo, timestamp_evento))
+            cursor.execute(query, (player_db_id, args.tipo, args.conteudo, timestamp_evento))
+            conn.commit()
             return cursor.lastrowid

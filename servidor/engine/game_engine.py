@@ -12,7 +12,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 class GameEngine:
     """
     Motor principal do jogo. Orquestra cada turno para uma sessão específica.
-    Versão: 3.5.0 - Adicionado gerenciamento de histórico de chat para contexto de curto prazo.
+    Versão: 3.5.1 - Removida a impressão de log redundante.
     """
     def __init__(self, context_builder: ContextBuilder, tool_processor: ToolProcessor):
         self.context_builder = context_builder
@@ -75,11 +75,7 @@ class GameEngine:
             if analysis_and_plan_text:
                 print("\n\033[1;34m--- Raciocínio do Arquiteto do Mundo ---\033[0m\n" + analysis_and_plan_text)
             
-            if not tool_calls:
-                print("--- Nenhuma ação estrutural foi necessária. ---")
-            else:
-                print(f"--- Arquiteto do Mundo solicitou {len(tool_calls)} ações. Executando... ---")
-                self.tool_processor.execute_tool_calls(tool_calls)
+            self.tool_processor.execute_tool_calls(tool_calls)
 
             print("\033[1;32m--- Atualização do mundo concluída. ---\033[0m")
             return narrative
