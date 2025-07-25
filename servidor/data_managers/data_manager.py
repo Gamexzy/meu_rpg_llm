@@ -4,7 +4,7 @@ import json
 import os
 import datetime
 from langchain.tools import tool
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
 
 from config import config
@@ -23,7 +23,7 @@ class AddOrGetPlayerArgs(BaseModel):
     nome: str = Field(description="Nome do jogador.")
     local_inicial_id_canonico: str = Field(description="ID canónico do local onde o jogador inicia.")
     perfil_completo_data: Dict = Field(description="Dados completos do perfil do jogador em formato de dicionário (ex: {'raca': 'Humano', 'ocupacao': 'Explorador'}).")
-
+    world_concept: str = Field(description="A descrição do conceito do mundo para esta saga.") # CAMPO ADICIONADO
 class AddPlayerVitalsArgs(BaseModel):
     jogador_id_canonico: str = Field(description="ID canónico do jogador.")
     fome: str = Field("Normal", description="Nível de fome (ex: 'Normal', 'Com Fome').")
@@ -293,8 +293,9 @@ class DataManager:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id FROM jogador WHERE id_canonico = ?", (args.id_canonico,))
-            if cursor.fetchone():
-                return self.get_entity_details_by_canonical_id('jogador', args.id_canonico)['id']
+            existing = cursor.fetchone()
+            if existing:
+                return existing['id']
 
             cursor.execute("SELECT id FROM locais WHERE id_canonico = ?", (args.local_inicial_id_canonico,))
             local_res = cursor.fetchone()
@@ -304,9 +305,10 @@ class DataManager:
             local_inicial_id_numerico = local_res['id']
             perfil_json_str = json.dumps(args.perfil_completo_data)
             
-            cursor.execute("INSERT INTO jogador (id_canonico, nome, local_atual_id, perfil_completo_json) VALUES (?, ?, ?, ?)",
-                           (args.id_canonico, args.nome, local_inicial_id_numerico, perfil_json_str))
-            conn.commit()
+            # --- QUERY ATUALIZADA AQUI ---
+            query = "INSERT INTO jogador (id_canonico, nome, local_atual_id, perfil_completo_json, world_concept) VALUES (?, ?, ?, ?, ?)"
+            cursor.execute(query,
+                           (args.id_canonico, args.nome, local_inicial_id_numerico, perfil_json_str, args.world_concept))
             return cursor.lastrowid
 
     @tool(args_schema=AddPlayerVitalsArgs)

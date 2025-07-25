@@ -3,7 +3,7 @@ import chromadb
 import os
 from sentence_transformers import SentenceTransformer
 from langchain.tools import tool
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
 import json
 

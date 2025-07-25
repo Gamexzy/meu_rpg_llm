@@ -76,9 +76,10 @@ def create_player_tables(cursor):
             nome TEXT NOT NULL,
             local_atual_id INTEGER,
             perfil_completo_json TEXT,
+            world_concept TEXT, 
             FOREIGN KEY (local_atual_id) REFERENCES locais(id)
         );
-
+        
         -- Habilidades do jogador
         CREATE TABLE IF NOT EXISTS jogador_habilidades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

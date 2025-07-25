@@ -4,7 +4,7 @@ import sys
 import traceback
 import re
 import sqlite3
-import uuid  # Importa a biblioteca para gerar IDs únicos
+import uuid
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -22,8 +22,8 @@ from servidor.engine.tool_processor import ToolProcessor
 from servidor.engine.game_engine import GameEngine
 
 # --- CONFIGURAÇÃO DE VERSÃO ---
-SERVER_VERSION = "2.3.0" # ID canónico do jogador agora é único por sessão para evitar colisões.
-MINIMUM_CLIENT_VERSION = "1.1"
+SERVER_VERSION = "1.5.0"
+MINIMUM_CLIENT_VERSION = "1.2"
 
 # --- GERENCIADOR DE SESSÕES ---
 active_game_engines = {}
@@ -60,7 +60,7 @@ def get_or_create_game_engine(session_name: str):
     
     data_manager = DataManager(session_name)
     chromadb_manager = ChromaDBManager(session_name)
-    neo4j_manager = Neo4jManager() # Não precisa de session_name aqui
+    neo4j_manager = Neo4jManager()
     context_builder = ContextBuilder(data_manager, chromadb_manager)
     tool_processor = ToolProcessor(data_manager, chromadb_manager, neo4j_manager)
     
@@ -70,12 +70,12 @@ def get_or_create_game_engine(session_name: str):
     return game_engine
 
 def sanitize_session_name(name: str) -> str:
-    """Limpa e formata um nome para ser usado como parte do nome de arquivo de sessão."""
+    """Limpa e formata um nome para ser usado como nome de arquivo de sessão e coleção."""
     name = name.lower().strip()
     name = re.sub(r'\s+', '_', name)
     name = re.sub(r'[^\w-]', '', name)
     name = name.strip('_-')
-    return name[:20] or "personagem"
+    return name[:50] or "personagem_sem_nome"
 
 # --- ENDPOINTS DA API ---
 
@@ -96,15 +96,39 @@ def get_sessions():
             if filename.endswith(".db"):
                 session_name = filename[:-3]
                 try:
+                    # Usamos um DataManager temporário apenas para ler a informação
                     temp_dm = DataManager(session_name, supress_success_message=True)
-                    player_info = temp_dm.get_all_entities_from_table('jogador')
-                    player_name = player_info[0]['nome'] if player_info else "Nova Aventura"
-                    sessions.append({"session_name": session_name, "player_name": player_name})
-                except Exception:
-                    sessions.append({"session_name": session_name, "player_name": "Sessão Corrompida?"})
+                    # Busca a informação do primeiro (e único) jogador na DB
+                    player_info_list = temp_dm.get_all_entities_from_table('jogador')
+                    
+                    if player_info_list:
+                        player_info = player_info_list[0]
+                        player_name = player_info.get('nome', "Nome Desconhecido")
+                        # --- CAMPO ADICIONADO AQUI ---
+                        world_concept = player_info.get('world_concept', "Uma aventura misteriosa...")
+                        sessions.append({
+                            "session_name": session_name,
+                            "player_name": player_name,
+                            "world_concept": world_concept
+                        })
+                    else:
+                        # Se não houver jogador, é uma saga vazia ou em processo de criação
+                        sessions.append({
+                            "session_name": session_name,
+                            "player_name": "Nova Aventura",
+                            "world_concept": "Ainda por definir..."
+                        })
+                except Exception as e:
+                    print(f"Erro ao processar a sessão '{session_name}': {e}")
+                    sessions.append({
+                        "session_name": session_name,
+                        "player_name": "Sessão Corrompida?",
+                        "world_concept": "Não foi possível carregar os detalhes."
+                    })
         return jsonify(sessions)
     except Exception as e:
         return jsonify({"error": f"Erro ao listar sessões: {e}"}), 500
+
 
 @app.route('/sessions/create', methods=['POST'])
 def create_session():
@@ -115,37 +139,25 @@ def create_session():
     if not char_name or not world_concept:
         return jsonify({"error": "Nome do personagem e conceito do mundo são obrigatórios."}), 400
 
-    sanitized_char_name = sanitize_session_name(char_name)
-    unique_id = uuid.uuid4().hex[:6]
-    session_name = f"{sanitized_char_name}_{unique_id}"
-
-    db_path = os.path.join(config.PROD_DATA_DIR, f"{session_name}.db")
-    while os.path.exists(db_path):
-        unique_id = uuid.uuid4().hex[:6]
-        session_name = f"{sanitized_char_name}_{unique_id}"
-        db_path = os.path.join(config.PROD_DATA_DIR, f"{session_name}.db")
+    base_name = sanitize_session_name(char_name)
+    random_suffix = uuid.uuid4().hex[:6]
+    session_name = f"{base_name}_{random_suffix}"
+    
+    player_id_canonico = f"pj_{session_name}"
 
     try:
         game_engine = get_or_create_game_engine(session_name)
         
-        # --- NOVO: Define um id_canonico único para o jogador e passa na instrução ---
-        player_id_canonico = f"pj_{session_name}"
+        initial_action = (
+            f"META-INSTRUÇÃO DE CONSTRUÇÃO DE MUNDO: Crie o universo para uma nova saga. "
+            f"O personagem principal chama-se '{char_name}' e deve ter o id_canonico '{player_id_canonico}'. "
+            f"O conceito do mundo é: '{world_concept}'. "
+            f"Por favor, crie um local inicial apropriado, crie o personagem jogador com este conceito em mente, "
+            f"adicione o conceito do mundo ao perfil do jogador, e coloque o jogador no local. "
+            f"Depois, gere a narrativa de abertura para apresentar o personagem e o cenário ao jogador."
+        )
         
-        world_building_prompt = f"""
-        META-INSTRUÇÃO DE CONSTRUÇÃO DE MUNDO:
-        - Nome do Personagem Principal: {char_name}
-        - Conceito Inicial do Mundo e Personagem: {world_concept}
-        
-        TAREFA: Como Mestre de Jogo e Arquiteto do Mundo, a sua tarefa é criar o cenário inicial para esta nova saga.
-        Primeiro, o Arquiteto do Mundo deve planejar e executar as seguintes ações na ordem correta:
-        1. Criar um local inicial criativo com base no 'Conceito Inicial'.
-        2. Criar o personagem jogador com o nome '{char_name}'. O id_canonico do jogador DEVE SER EXATAMENTE '{player_id_canonico}'. Coloque-o no local que acabou de criar.
-        3. Adicionar uma ou duas habilidades, conhecimentos ou itens iniciais ao jogador que façam sentido no contexto.
-        
-        Depois que o Arquiteto do Mundo preparar o cenário, o Mestre de Jogo deve escrever a narrativa de abertura.
-        """
-        
-        narrative = game_engine.execute_turn(world_building_prompt)
+        narrative = game_engine.execute_turn(initial_action)
         
         return jsonify({
             "message": "Sessão criada com sucesso!",
