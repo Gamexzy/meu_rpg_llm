@@ -24,12 +24,10 @@ from servidor.engine.game_engine import GameEngine
 from servidor.utils.request_logger import log_request
 from servidor.utils.logging_config import setup_logging
 
-# --- INICIALIZAÇÃO DO LOGGING ---
-# Esta função configura o logger para toda a aplicação
 setup_logging()
 
 # --- CONFIGURAÇÃO DE VERSÃO ---
-SERVER_VERSION = "1.6.0" # Versão atualizada para refletir as melhorias de logging
+SERVER_VERSION = "1.7.0" # Versão atualizada para refletir a correção do endpoint /sessions
 MINIMUM_CLIENT_VERSION = "1.2"
 
 # --- GERENCIADOR DE SESSÕES ---
@@ -38,17 +36,10 @@ active_game_engines = {}
 app = Flask(__name__)
 CORS(app)
 
-# --- INICIALIZAÇÃO DOS GESTORES GLOBAIS (SINGLETON) ---
-# Estes gestores são criados uma vez e partilhados por todas as sessões
 chromadb_manager_singleton = ChromaDBManager()
 neo4j_manager_singleton = Neo4jManager()
 
-
 def get_or_create_game_engine(session_name: str):
-    """
-    Obtém uma instância existente do GameEngine ou cria uma nova,
-    incluindo a criação do banco de dados se ele não existir.
-    """
     if session_name in active_game_engines:
         return active_game_engines[session_name]
 
@@ -71,10 +62,7 @@ def get_or_create_game_engine(session_name: str):
 
     logging.info(f"--- INICIANDO NOVA INSTÂNCIA DE JOGO PARA A SESSÃO: {session_name} ---")
     
-    # DataManager é específico para cada sessão
     data_manager = DataManager(session_name)
-    
-    # Os outros componentes usam os gestores singleton
     context_builder = ContextBuilder(data_manager, chromadb_manager_singleton, session_name)
     tool_processor = ToolProcessor(data_manager, chromadb_manager_singleton, neo4j_manager_singleton)
     game_engine = GameEngine(context_builder, tool_processor)
@@ -83,24 +71,19 @@ def get_or_create_game_engine(session_name: str):
     return game_engine
 
 def sanitize_session_name(name: str) -> str:
-    """Limpa e formata um nome para ser usado como nome de arquivo de sessão e coleção."""
     name = name.lower().strip()
     name = re.sub(r'\s+', '_', name)
     name = re.sub(r'[^\w-]', '', name)
     name = name.strip('_-')
     return name[:50] or "personagem_sem_nome"
 
-# --- MIDDLEWARE E ENDPOINTS DA API ---
-
 @app.after_request
 def after_request_func(response):
-    """Este hook do Flask executa a nossa função de log após cada requisição."""
     log_request(response)
     return response
 
 @app.route('/status', methods=['GET'])
 def get_status():
-    """Endpoint para verificar a saúde e a versão do servidor."""
     return jsonify({
         "server_version": SERVER_VERSION,
         "minimum_client_version": MINIMUM_CLIENT_VERSION,
@@ -109,7 +92,6 @@ def get_status():
 
 @app.route('/sessions', methods=['GET'])
 def get_sessions():
-    """Lista todas as sessões de jogo salvas."""
     sessions = []
     try:
         os.makedirs(config.PROD_DATA_DIR, exist_ok=True)
@@ -118,29 +100,26 @@ def get_sessions():
                 session_name = filename[:-3]
                 try:
                     temp_dm = DataManager(session_name, supress_success_message=True)
+                    
+                    # CORREÇÃO: Busca os dados da saga e do jogador separadamente
+                    sagas_info_list = temp_dm.get_all_entities_from_table('sagas')
                     player_info_list = temp_dm.get_all_entities_from_table('jogador')
                     
-                    if player_info_list:
-                        player_info = player_info_list[0]
-                        player_name = player_info.get('nome', "Nome Desconhecido")
-                        
-                        sagas_info_list = temp_dm.get_all_entities_from_table('sagas')
-                        world_concept = "Uma aventura misteriosa..."
-                        if sagas_info_list:
-                            # Assumindo uma saga por DB, pegamos o primeiro resultado
-                            world_concept = sagas_info_list[0].get('world_concept', world_concept)
+                    player_name = "Nova Aventura"
+                    world_concept = "Ainda por definir..."
 
-                        sessions.append({
-                            "session_name": session_name,
-                            "player_name": player_name,
-                            "world_concept": world_concept
-                        })
-                    else:
-                        sessions.append({
-                            "session_name": session_name,
-                            "player_name": "Nova Aventura",
-                            "world_concept": "Ainda por definir..."
-                        })
+                    if player_info_list:
+                        player_name = player_info_list[0].get('nome', player_name)
+                    
+                    if sagas_info_list:
+                        world_concept = sagas_info_list[0].get('world_concept', world_concept)
+
+                    sessions.append({
+                        "session_name": session_name,
+                        "player_name": player_name,
+                        "world_concept": world_concept
+                    })
+
                 except Exception as e:
                     logging.error(f"Erro ao processar a sessão '{session_name}': {e}")
                     sessions.append({
@@ -156,7 +135,6 @@ def get_sessions():
 
 @app.route('/sessions/create', methods=['POST'])
 def create_session():
-    """Cria uma nova sessão de jogo, personagem e mundo inicial."""
     data = request.json
     char_name = data.get('character_name')
     world_concept = data.get('world_concept')
@@ -196,7 +174,6 @@ def create_session():
 
 @app.route('/sessions/<session_name>/execute_turn', methods=['POST'])
 def execute_turn_route(session_name: str):
-    """Executa um turno de jogo para uma sessão específica."""
     try:
         game_engine = get_or_create_game_engine(session_name)
         player_action = request.json['player_action']
@@ -209,7 +186,6 @@ def execute_turn_route(session_name: str):
 
 @app.route('/sessions/<session_name>/state', methods=['GET'])
 def get_game_state_route(session_name: str):
-    """Obtém o estado completo do jogador para uma sessão."""
     try:
         data_manager = DataManager(session_name, supress_success_message=True)
         player_status = data_manager.get_player_full_status()
@@ -222,13 +198,9 @@ def get_game_state_route(session_name: str):
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Mensagens de inicialização agora usam o logger, sem códigos de cor
     logging.info("===========================================")
     logging.info(f"=    SERVIDOR DE SAGAS (v{SERVER_VERSION})    =")
     logging.info(f"Versão mínima do cliente: {MINIMUM_CLIENT_VERSION}")
     logging.info("===========================================")
     
-    # O modo debug=True do Flask faz o servidor reiniciar a cada alteração,
-    # o que é ótimo para desenvolvimento.
     app.run(host='0.0.0.0', port=5000, debug=True)
-

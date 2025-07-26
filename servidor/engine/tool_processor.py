@@ -2,20 +2,19 @@
 import inspect
 import json
 import traceback
-import logging # Adicionar import de logging
+import logging
 from typing import List, Dict, Tuple
 from langchain_core.tools import BaseTool
 from servidor.data_managers.data_manager import DataManager
 from servidor.data_managers.chromadb_manager import ChromaDBManager
 from servidor.data_managers.neo4j_manager import Neo4jManager
 
-# Obter um logger para este módulo
 logger = logging.getLogger(__name__)
 
 class ToolProcessor:
     """
     Coleta, prepara e executa as ferramentas para uma sessão de jogo específica.
-    Versão: 7.1.0 - Corrigido o método de chamada da ferramenta para usar .invoke() em vez de desempacotamento de kwargs.
+    Versão: 8.1.0 - Corrigida a chamada da função da ferramenta para injetar 'self' manualmente.
     """
     def __init__(self, data_manager: DataManager, chromadb_manager: ChromaDBManager, neo4j_manager: Neo4jManager):
         self.session_name = data_manager.session_name
@@ -29,7 +28,7 @@ class ToolProcessor:
         self.tool_map: Dict[str, Tuple[BaseTool, object]] = {}
         self._discover_and_map_tools()
 
-        logger.info(f"{len(self.tools)} ferramentas preparadas para o motor de jogo da sessão '{self.session_name}'.")
+        logger.info(f"{len(self.tool_map)} ferramentas preparadas para o motor de jogo da sessão '{self.session_name}'.")
 
     def _discover_and_map_tools(self):
         """
@@ -48,7 +47,7 @@ class ToolProcessor:
 
     def execute_tool_calls(self, tool_calls: List[dict]):
         """
-        Executa uma lista de chamadas de ferramentas usando o método .invoke().
+        Executa uma lista de chamadas de ferramentas, garantindo o contexto correto e a validação de tipos.
         """
         if not tool_calls:
             logger.info("--- Nenhuma ação estrutural foi necessária. ---")
@@ -64,26 +63,29 @@ class ToolProcessor:
             if tool_info:
                 tool_object, manager_instance = tool_info
                 
-                # O Langchain espera que os argumentos de dados JSON sejam strings, não dicionários.
-                # Vamos garantir que eles sejam convertidos para string JSON antes de invocar.
-                args_for_invocation = {}
+                sanitized_args = {}
                 for key, value in tool_args.items():
-                    if isinstance(value, dict):
-                        args_for_invocation[key] = json.dumps(value, ensure_ascii=False)
+                    if isinstance(value, str) and ('_data' in key or '_json' in key or 'properties' in key):
+                        try:
+                            sanitized_args[key] = json.loads(value)
+                        except json.JSONDecodeError:
+                            sanitized_args[key] = value
                     else:
-                        args_for_invocation[key] = value
+                        sanitized_args[key] = value
                 
                 if tool_object.args_schema and 'session_name' in tool_object.args_schema.__fields__:
-                    args_for_invocation['session_name'] = self.session_name
+                    sanitized_args['session_name'] = self.session_name
 
-                logger.info(f"--- Executando Ferramenta: {tool_name} com args: {args_for_invocation} ---")
+                logger.info(f"--- Executando Ferramenta: {tool_name} com args: {sanitized_args} ---")
                 try:
-                    # --- CORREÇÃO PRINCIPAL APLICADA AQUI ---
-                    # Usamos o método .invoke() da ferramenta, passando um único dicionário de argumentos.
-                    result = tool_object.invoke(args_for_invocation)
+                    # --- CORREÇÃO DEFINITIVA ---
+                    # O `tool_object.func` contém a função original (ex: DataManager.add_or_get_location).
+                    # Chamamos essa função, passando a `manager_instance` como o primeiro argumento (`self`),
+                    # e depois desempacotamos o resto dos argumentos.
+                    result = tool_object.func(manager_instance, **sanitized_args)
+                    
                     logger.info(f"--- Resultado: {result} ---")
                 except Exception as e:
                     logger.error(f"ERRO ao executar a ferramenta '{tool_name}': {e}", exc_info=True)
             else:
                 logger.warning(f"AVISO: Ferramenta '{tool_name}' solicitada pela IA, mas não encontrada.")
-
