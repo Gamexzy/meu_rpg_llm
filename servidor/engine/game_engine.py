@@ -1,7 +1,7 @@
 # servidor/engine/game_engine.py
 import json
 import traceback
-import threading  # Importa a biblioteca de threading
+import threading
 from config import config
 from servidor.engine.context_builder import ContextBuilder
 from servidor.llm.client import LLMClient
@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 class GameEngine:
     """
     Motor principal do jogo. Orquestra cada turno para uma sessão específica.
-    Versão: 4.0.0 - A atualização do World Agent agora é executada em segundo plano (assíncrona).
+    Versão: 4.1.0 - Ajustado para a nova inicialização do LLMClient.
     """
     def __init__(self, context_builder: ContextBuilder, tool_processor: ToolProcessor):
         self.context_builder = context_builder
@@ -21,15 +21,16 @@ class GameEngine:
         self.mj_agent = MJAgent()
         self.world_agent = WorldAgent()
 
-        self.mj_llm_client = LLMClient(model_name=config.GENERATIVE_MODEL, tool_processor=self.tool_processor)
-        self.world_llm_client = LLMClient(model_name=config.AGENT_GENERATIVE_MODEL, tool_processor=self.tool_processor)
+        # A inicialização do LLMClient agora é mais simples
+        self.mj_llm_client = LLMClient(model_name=config.GENERATIVE_MODEL)
+        self.world_llm_client = LLMClient(model_name=config.AGENT_GENERATIVE_MODEL)
         
         self.chat_history = []
         self.HISTORY_MAX_TURNS = 5
 
         print(f"--- INSTÂNCIA PARA '{context_builder.data_manager.session_name}' PRONTA ---")
 
-    def _run_world_agent_in_background(self, narrative: str, context_str: str):
+    def _run_world_agent_in_background(self, narrative: str, context_str: str, history_snapshot: list):
         """
         Esta função é executada numa thread separada para não bloquear a resposta ao utilizador.
         """
@@ -41,7 +42,7 @@ class GameEngine:
             analysis_and_plan_text, tool_calls = self.world_llm_client.call(
                 system_prompt=world_system_prompt,
                 user_prompt=world_user_prompt,
-                history=self.chat_history,
+                history=history_snapshot, # Usa o snapshot do histórico
                 tools=world_agent_tools
             )
 
@@ -77,25 +78,22 @@ class GameEngine:
             
             print("\n\033[1;35m--- RESPOSTA DO MESTRE DE JOGO (Enviando ao cliente) ---\033[0m\n" + narrative)
 
-            # Atualiza o histórico para que a thread de background possa usá-lo
+            # Prepara e inicia a thread de background
+            history_snapshot = self.chat_history[:] # Cria uma cópia do histórico para a thread
+            
+            background_thread = threading.Thread(
+                target=self._run_world_agent_in_background,
+                args=(narrative, context_str, history_snapshot)
+            )
+            background_thread.start()
+
+            # Atualiza o histórico principal imediatamente
             self.chat_history.append(HumanMessage(content=player_action))
             self.chat_history.append(AIMessage(content=narrative))
             if len(self.chat_history) > self.HISTORY_MAX_TURNS * 2:
                 self.chat_history = self.chat_history[-(self.HISTORY_MAX_TURNS * 2):]
 
-            if not narrative or "interferência cósmica" in narrative:
-                return narrative
-
-            # --- INICIA A ATUALIZAÇÃO DO MUNDO EM SEGUNDO PLANO ---
-            world_agent_thread = threading.Thread(
-                target=self._run_world_agent_in_background,
-                args=(narrative, context_str)
-            )
-            world_agent_thread.start()
-            
-            # Retorna a narrativa imediatamente para o cliente
             return narrative
-            
         except Exception as e:
             print(f"ERRO CRÍTICO NO TURNO: {e}")
             traceback.print_exc()

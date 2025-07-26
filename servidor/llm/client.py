@@ -10,12 +10,11 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 class LLMClient:
     """
-    Cliente para interagir com a API do Google Gemini de forma síncrona, usando as abstrações do LangChain.
-    Versão: 4.1.0 - Adicionado suporte para histórico de chat (memória de curto prazo).
+    Cliente para interagir com a API do Google Gemini, usando as abstrações do LangChain.
+    Versão: 5.0.0 - Simplificado, removido o tool_processor que não era utilizado.
     """
 
-    def __init__(self, model_name: str, tool_processor):
-        self.tool_processor = tool_processor
+    def __init__(self, model_name: str):
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
             google_api_key=config.GEMINI_API_KEY,
@@ -27,13 +26,12 @@ class LLMClient:
         self,
         system_prompt: str,
         user_prompt: str,
-        history: List[BaseMessage] = None, # Parâmetro para o histórico
+        history: List[BaseMessage] = None,
         tools: List[BaseTool] = None,
     ) -> Tuple[str, List[dict]]:
         """
         Envia um prompt para o modelo Gemini e retorna a resposta e as chamadas de função.
         """
-        # Monta a lista de mensagens completa: Sistema -> Histórico -> Utilizador
         messages = [SystemMessage(content=system_prompt)]
         if history:
             messages.extend(history)
