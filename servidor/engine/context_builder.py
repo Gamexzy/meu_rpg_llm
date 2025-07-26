@@ -7,12 +7,14 @@ from servidor.data_managers.chromadb_manager import ChromaDBManager
 class ContextBuilder:
     """
     Constrói o dicionário de contexto completo para um turno do jogo.
-    Versão: 2.2.0 - Simplificada a extração de lore após correção no ChromaDBManager.
+    Versão: 2.3.0 - Agora recebe session_name para consultas ao ChromaDB.
     """
 
-    def __init__(self, data_manager: DataManager, chromadb_manager: ChromaDBManager):
+    def __init__(self, data_manager: DataManager, chromadb_manager: ChromaDBManager, session_name: str):
         self.data_manager = data_manager
         self.chromadb_manager = chromadb_manager
+        # CORREÇÃO: Armazena o nome da sessão para usar nas consultas
+        self.session_name = session_name
 
     def get_current_context(self):
         """
@@ -64,10 +66,10 @@ class ContextBuilder:
             contexto["locais_vizinhos"] = self.data_manager.get_siblings(local_id_numerico)
 
         query_rag = f"Descreva o local {contexto['local_atual']['nome']} (tipo: {contexto['local_atual'].get('tipo', 'Desconhecido')}) e o que há de interessante ou perigoso nele."
-        relevante_lore = self.chromadb_manager.query_lore(query_rag, n_results=3)
         
-        # --- CORREÇÃO APLICADA AQUI ---
-        # Agora 'relevante_lore' já é uma lista de strings, então a atribuição é direta.
+        # CORREÇÃO: Passa o nome da sessão para a consulta de lore
+        relevante_lore = self.chromadb_manager.query_lore(self.session_name, query_rag, n_results=3)
+        
         contexto["lore_relevante"] = relevante_lore if relevante_lore else []
 
         return contexto

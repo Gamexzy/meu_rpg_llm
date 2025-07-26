@@ -7,6 +7,8 @@ load_dotenv()  # Carrega as variáveis de ambiente do arquivo .env
 # A BASE_DIR aponta para a raiz do projeto (meu_rpg_llm)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+ENABLE_REQUEST_LOGGING = True
+
 # Caminho para o diretório onde os dados em produção serão armazenados
 PROD_DATA_DIR = os.path.join(BASE_DIR, 'dados_em_producao')
 
