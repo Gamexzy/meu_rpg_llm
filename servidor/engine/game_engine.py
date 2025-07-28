@@ -2,6 +2,7 @@
 import json
 import traceback
 import threading
+import re
 from config import config
 from servidor.engine.context_builder import ContextBuilder
 from servidor.llm.client import LLMClient
@@ -9,11 +10,12 @@ from agents.mj_agent import MJAgent
 from agents.world_agent import WorldAgent
 from servidor.engine.tool_processor import ToolProcessor
 from langchain_core.messages import HumanMessage, AIMessage
+from typing import List, Dict
 
 class GameEngine:
     """
     Motor principal do jogo. Orquestra cada turno para uma sessão específica.
-    Versão: 4.1.0 - Ajustado para a nova inicialização do LLMClient.
+    Versão: 4.3.0 - Adicionado método para gerar ferramentas e corrigida a resposta do MJ.
     """
     def __init__(self, context_builder: ContextBuilder, tool_processor: ToolProcessor):
         self.context_builder = context_builder
@@ -21,7 +23,6 @@ class GameEngine:
         self.mj_agent = MJAgent()
         self.world_agent = WorldAgent()
 
-        # A inicialização do LLMClient agora é mais simples
         self.mj_llm_client = LLMClient(model_name=config.GENERATIVE_MODEL)
         self.world_llm_client = LLMClient(model_name=config.AGENT_GENERATIVE_MODEL)
         
@@ -30,11 +31,56 @@ class GameEngine:
 
         print(f"--- INSTÂNCIA PARA '{context_builder.data_manager.session_name}' PRONTA ---")
 
+    def generate_contextual_tools(self) -> List[Dict[str, str]]:
+        """
+        Usa o MJAgent para gerar uma lista de ações contextuais ("ferramentas")
+        com base no estado atual do jogo.
+        """
+        try:
+            print("\n\033[1;36m--- Gerando ferramentas contextuais... ---\033[0m")
+            context = self.context_builder.get_current_context()
+            context_str = json.dumps(context, indent=2, ensure_ascii=False)
+
+            tool_system_prompt, tool_user_prompt = self.mj_agent.format_prompt_for_tools(context_str)
+
+            response_text, _ = self.mj_llm_client.call(
+                system_prompt=tool_system_prompt,
+                user_prompt=tool_user_prompt,
+                history=[],
+                tools=[]
+            )
+
+            print(f"\n\033[1;33m--- Resposta JSON do MJ para ferramentas: ---\033[0m\n{response_text}")
+
+            # Extrai o JSON de dentro de ```json ... ``` se houver
+            json_match = re.search(r'```json\s*(\[.*\])\s*```', response_text, re.DOTALL)
+            if json_match:
+                clean_json_str = json_match.group(1)
+            else:
+                # Se não houver ```, busca por um array JSON solto
+                json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+                if not json_match:
+                    print("\033[1;31mAVISO: Nenhuma lista JSON válida encontrada na resposta do MJ.\033[0m")
+                    return []
+                clean_json_str = json_match.group(0)
+            
+            tools = json.loads(clean_json_str)
+            return tools
+
+        except Exception as e:
+            print(f"ERRO CRÍTICO AO GERAR FERRAMENTAS: {e}")
+            traceback.print_exc()
+            return []
+
     def _run_world_agent_in_background(self, narrative: str, context_str: str, history_snapshot: list):
         """
         Esta função é executada numa thread separada para não bloquear a resposta ao utilizador.
         """
         try:
+            # Não executa o agente de mundo se a narrativa for um erro ou aviso
+            if "O Mestre de Jogo parece confuso" in narrative or "O universo tremeu" in narrative:
+                return
+                
             print("\n\033[1;36m--- [BG] Agente Arquiteto do Mundo está a analisar... ---\033[0m")
             world_system_prompt, world_user_prompt = self.world_agent.format_prompt(narrative, context_str)
             world_agent_tools = self.tool_processor.get_tools()
@@ -42,7 +88,7 @@ class GameEngine:
             analysis_and_plan_text, tool_calls = self.world_llm_client.call(
                 system_prompt=world_system_prompt,
                 user_prompt=world_user_prompt,
-                history=history_snapshot, # Usa o snapshot do histórico
+                history=history_snapshot,
                 tools=world_agent_tools
             )
 
@@ -76,10 +122,16 @@ class GameEngine:
                 tools=[] 
             )
             
+            # --- CORREÇÃO DE SEGURANÇA ---
+            # Verifica se a resposta é um JSON de ferramentas por engano.
+            if narrative.strip().startswith('[') and narrative.strip().endswith(']'):
+                print(f"\033[1;31mERRO: MJ respondeu com JSON em vez de narrativa. Ação: '{player_action}'. Resposta: {narrative}\033[0m")
+                narrative = "O Mestre de Jogo parece confuso com sua ação e pede um momento para organizar seus pensamentos. Por favor, tente outra ação."
+
+            
             print("\n\033[1;35m--- RESPOSTA DO MESTRE DE JOGO (Enviando ao cliente) ---\033[0m\n" + narrative)
 
-            # Prepara e inicia a thread de background
-            history_snapshot = self.chat_history[:] # Cria uma cópia do histórico para a thread
+            history_snapshot = self.chat_history[:]
             
             background_thread = threading.Thread(
                 target=self._run_world_agent_in_background,
@@ -87,7 +139,6 @@ class GameEngine:
             )
             background_thread.start()
 
-            # Atualiza o histórico principal imediatamente
             self.chat_history.append(HumanMessage(content=player_action))
             self.chat_history.append(AIMessage(content=narrative))
             if len(self.chat_history) > self.HISTORY_MAX_TURNS * 2:
