@@ -8,7 +8,7 @@ import shutil
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
 
-from config import config 
+from src import config 
 from servidor.data_managers.data_manager import DataManager
 from servidor.data_managers.chromadb_manager import ChromaDBManager
 from servidor.data_managers.neo4j_manager import Neo4jManager

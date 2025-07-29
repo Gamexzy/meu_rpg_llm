@@ -1,6 +1,6 @@
 # servidor/engine/context_builder.py
 import json
-from config import config
+from src import config
 from servidor.data_managers.data_manager import DataManager
 from servidor.data_managers.chromadb_manager import ChromaDBManager
 

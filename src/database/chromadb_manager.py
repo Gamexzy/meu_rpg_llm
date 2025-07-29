@@ -6,7 +6,7 @@ from sentence_transformers import SentenceTransformer
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 from typing import Dict, List
-from config import config
+from src import config
 
 # --- Modelos Pydantic para Validação de Argumentos das Ferramentas ---
 

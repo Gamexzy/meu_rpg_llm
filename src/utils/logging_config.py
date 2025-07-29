@@ -4,7 +4,7 @@ import os
 import sys
 import json
 from datetime import datetime
-from config import config
+from src import config
 import colorlog
 from colorlog.escape_codes import escape_codes # Importa os códigos de cor
 

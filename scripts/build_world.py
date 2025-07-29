@@ -8,7 +8,7 @@ import traceback
 # Adiciona o diretório raiz do projeto ao sys.path para que os módulos, como 'config', possam ser importados
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
-from config import config
+from src import config
 
 # --- FUNÇÕES DE SCHEMA PARA SESSÃO DE JOGO ---
 

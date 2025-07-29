@@ -3,7 +3,7 @@ import json
 import traceback
 import threading
 import re
-from config import config
+from src import config
 from servidor.engine.context_builder import ContextBuilder
 from servidor.llm.client import LLMClient
 from agents.mj_agent import MJAgent

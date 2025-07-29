@@ -5,9 +5,9 @@ import traceback
 import logging
 from typing import List, Dict, Tuple
 from langchain_core.tools import BaseTool
-from servidor.data_managers.data_manager import DataManager
-from servidor.data_managers.chromadb_manager import ChromaDBManager
-from servidor.data_managers.neo4j_manager import Neo4jManager
+from src.database.sqlite_manager import SqliteManager
+from src.database.chromadb_manager import ChromaDBManager
+from src.database.neo4j_manager import Neo4jManager
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class ToolProcessor:
     Coleta, prepara e executa as ferramentas para uma sessão de jogo específica.
     Versão: 8.1.0 - Corrigida a chamada da função da ferramenta para injetar 'self' manualmente.
     """
-    def __init__(self, data_manager: DataManager, chromadb_manager: ChromaDBManager, neo4j_manager: Neo4jManager):
+    def __init__(self, data_manager: SqliteManager, chromadb_manager: ChromaDBManager, neo4j_manager: Neo4jManager):
         self.session_name = data_manager.session_name
         self.managers = {
             'data_manager': data_manager,
@@ -79,7 +79,7 @@ class ToolProcessor:
                 logger.info(f"--- Executando Ferramenta: {tool_name} com args: {sanitized_args} ---")
                 try:
                     # --- CORREÇÃO DEFINITIVA ---
-                    # O `tool_object.func` contém a função original (ex: DataManager.add_or_get_location).
+                    # O `tool_object.func` contém a função original (ex: SqliteManager.add_or_get_location).
                     # Chamamos essa função, passando a `manager_instance` como o primeiro argumento (`self`),
                     # e depois desempacotamos o resto dos argumentos.
                     result = tool_object.func(manager_instance, **sanitized_args)

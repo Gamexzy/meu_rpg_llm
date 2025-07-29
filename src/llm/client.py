@@ -2,7 +2,7 @@
 import traceback
 from typing import List, Tuple
 
-from config import config
+from src import config
 from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 from langchain_core.tools import BaseTool
 from langchain_google_genai import ChatGoogleGenerativeAI

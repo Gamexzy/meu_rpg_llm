@@ -17,16 +17,16 @@ from passlib.context import CryptContext
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
 
-from config import config
+from src import config
 from scripts.build_world import setup_session_database
-from servidor.data_managers.data_manager import DataManager
-from servidor.data_managers.chromadb_manager import ChromaDBManager
-from servidor.data_managers.neo4j_manager import Neo4jManager
-from servidor.engine.context_builder import ContextBuilder
-from servidor.engine.tool_processor import ToolProcessor
-from servidor.engine.game_engine import GameEngine
-from servidor.utils.request_logger import log_request
-from servidor.utils.logging_config import setup_logging
+from src.database.sqlite_manager import SqliteManager
+from src.database.chromadb_manager import ChromaDBManager
+from src.database.neo4j_manager import Neo4jManager
+from src.engine.context_builder import ContextBuilder
+from src.engine.tool_processor import ToolProcessor
+from src.engine.game_engine import GameEngine
+from src.utils.request_logger import log_request
+from src.utils.logging_config import setup_logging
 
 # --- INICIALIZAÇÃO DO LOGGING ---
 setup_logging()
@@ -116,7 +116,7 @@ def get_or_create_game_engine(session_name: str):
 
     logging.info(f"--- INICIANDO NOVA INSTÂNCIA DE JOGO PARA A SESSÃO: {session_name} ---")
 
-    data_manager = DataManager(session_name)
+    data_manager = SqliteManager(session_name)
     context_builder = ContextBuilder(data_manager, chromadb_manager_singleton, session_name)
     tool_processor = ToolProcessor(data_manager, chromadb_manager_singleton, neo4j_manager_singleton)
     game_engine = GameEngine(context_builder, tool_processor)
@@ -314,7 +314,7 @@ def execute_turn_route(session_name: str):
 def get_game_state_route(session_name: str):
     if not check_session_ownership(session_name):
         return jsonify({"error": "Acesso não autorizado a esta saga."}), 403
-    data_manager = DataManager(session_name, supress_success_message=True)
+    data_manager = SqliteManager(session_name, supress_success_message=True)
     player_status = data_manager.get_player_full_status()
     if player_status:
         return jsonify(player_status)

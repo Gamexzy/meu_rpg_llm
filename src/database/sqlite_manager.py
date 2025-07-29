@@ -6,7 +6,7 @@ import datetime
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
-from config import config
+from src import config
 
 # --- Modelos Pydantic para Validação de Argumentos das Ferramentas ---
 
@@ -49,7 +49,7 @@ class AddLogMemoryArgs(BaseModel):
     tipo: str = Field(description="Tipo de log (ex: 'log_evento', 'memoria_consolidada').")
     conteudo: str = Field(description="Conteúdo do log ou memória.")
 
-class DataManager:
+class SqliteManager:
     """
     Gere todas as interações com a base de dados SQLite para uma sessão de jogo específica.
     Versão: 9.0.0 - Refatorado para máxima compatibilidade com LangChain, com assinaturas de função explícitas.
