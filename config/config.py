@@ -1,3 +1,4 @@
+# config/config.py
 import os
 from dotenv import load_dotenv
 
@@ -12,8 +13,13 @@ ENABLE_REQUEST_LOGGING = True
 # Caminho para o diretório onde os dados em produção serão armazenados
 PROD_DATA_DIR = os.path.join(BASE_DIR, 'dados_em_producao')
 
-# Caminho para o arquivo de banco de dados SQLite (Pilar B)
-DB_PATH_SQLITE = os.path.join(PROD_DATA_DIR, 'estado.db')
+# --- ATUALIZAÇÃO: Caminhos dos Bancos de Dados ---
+# Caminho para o banco de dados central de usuários e sagas (Pilar de Contas)
+DB_PATH_CENTRAL = os.path.join(PROD_DATA_DIR, 'central.db')
+
+# O caminho do SQLite agora é um template para os DBs de sessão
+DB_PATH_SQLITE_TEMPLATE = os.path.join(PROD_DATA_DIR, '{session_name}.db')
+
 
 # Caminho para o diretório de persistência do ChromaDB (Pilar A)
 CHROMA_PATH = os.path.join(PROD_DATA_DIR, 'chroma_db')
@@ -26,9 +32,15 @@ NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "password") # Altere se sua se
 # --- Configuração da API Gemini (LLM e Embedding) ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
+# --- ATUALIZAÇÃO: Chave para o JWT ---
+# Esta chave é usada para assinar os tokens de autenticação.
+# É crucial que seja secreta e forte em um ambiente de produção.
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+
+
 # Modelo de Geração de Conteúdo (LLM principal e Agentes)
-GENERATIVE_MODEL = "gemini-2.0-flash"
-AGENT_GENERATIVE_MODEL = "gemini-2.0-flash-lite"
+GENERATIVE_MODEL = "gemini-2.5-flash"
+AGENT_GENERATIVE_MODEL = "gemini-2.0-flash"
 
 # Modelo de Embedding
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
@@ -39,7 +51,7 @@ EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 MAX_AGENT_TOOL_CALLS = 5
 
 # Versão do Arquivo de Configuração
-CONFIG_VERSION = "1.3.0" # Adicionada configuração de processamento em lote para agentes.
+CONFIG_VERSION = "1.4.0" # Adicionado sistema de contas com DB central e JWT.
 
 # Exemplo de como você pode imprimir as configurações para depuração
 def print_config_summary():
@@ -47,12 +59,14 @@ def print_config_summary():
     print(f"Versão da Configuração: {CONFIG_VERSION}")
     print(f"Diretório Base do Projeto: {BASE_DIR}")
     print(f"Diretório de Dados de Produção: {PROD_DATA_DIR}")
-    print(f"Caminho do SQLite DB: {DB_PATH_SQLITE}")
+    print(f"Caminho do DB Central: {DB_PATH_CENTRAL}")
+    print(f"Template de Caminho do DB de Sessão: {DB_PATH_SQLITE_TEMPLATE}")
     print(f"Caminho do ChromaDB: {CHROMA_PATH}")
     print(f"Neo4j URI: {NEO4J_URI}")
     print(f"Neo4j User: {NEO4J_USER}")
     print(f"Neo4j Password: {'********' if NEO4J_PASSWORD else 'N/A (Vazio)'}")
     print(f"GEMINI_API_KEY: {'********' if GEMINI_API_KEY else 'N/A (Vazio/Não Definida)'}")
+    print(f"JWT Secret Key: {'********' if JWT_SECRET_KEY else 'N/A (Vazio)'}")
     print(f"Modelo Generativo (Principal): {GENERATIVE_MODEL}")
     print(f"Modelo Generativo (Agentes): {AGENT_GENERATIVE_MODEL}")
     print(f"Modelo de Embedding: {EMBEDDING_MODEL}")
