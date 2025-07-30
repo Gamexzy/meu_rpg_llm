@@ -1,4 +1,4 @@
-# servidor/data_managers/data_manager.py
+# src/database/sqlite_manager.py
 import sqlite3
 import json
 import os

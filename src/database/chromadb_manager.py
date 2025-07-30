@@ -1,4 +1,4 @@
-# servidor/data_managers/chromadb_manager.py
+# src/database/chromadb_manager.py
 import chromadb
 import os
 import json

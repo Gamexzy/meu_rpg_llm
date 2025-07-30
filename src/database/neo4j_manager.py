@@ -1,4 +1,4 @@
-# servidor/data_managers/neo4j_manager.py
+# src/database/neo4j_manager.py
 from neo4j import GraphDatabase
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field

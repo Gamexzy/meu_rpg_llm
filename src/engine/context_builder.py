@@ -1,8 +1,8 @@
 # servidor/engine/context_builder.py
 import json
 from src import config
-from servidor.data_managers.data_manager import DataManager
-from servidor.data_managers.chromadb_manager import ChromaDBManager
+from src.database.sqlite_manager import SqliteManager
+from src.database.chromadb_manager import ChromaDBManager
 
 class ContextBuilder:
     """
@@ -10,7 +10,7 @@ class ContextBuilder:
     Versão: 2.3.0 - Agora recebe session_name para consultas ao ChromaDB.
     """
 
-    def __init__(self, data_manager: DataManager, chromadb_manager: ChromaDBManager, session_name: str):
+    def __init__(self, data_manager: SqliteManager, chromadb_manager: ChromaDBManager, session_name: str):
         self.data_manager = data_manager
         self.chromadb_manager = chromadb_manager
         # CORREÇÃO: Armazena o nome da sessão para usar nas consultas

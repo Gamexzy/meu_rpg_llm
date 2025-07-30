@@ -4,11 +4,11 @@ import traceback
 import threading
 import re
 from src import config
-from servidor.engine.context_builder import ContextBuilder
-from servidor.llm.client import LLMClient
+from src.engine.context_builder import ContextBuilder
+from src.llm.client import LLMClient
 from agents.mj_agent import MJAgent
 from agents.world_agent import WorldAgent
-from servidor.engine.tool_processor import ToolProcessor
+from src.engine.tool_processor import ToolProcessor
 from langchain_core.messages import HumanMessage, AIMessage
 from typing import List, Dict
 

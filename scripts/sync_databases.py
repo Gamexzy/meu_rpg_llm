@@ -9,9 +9,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
 
 from src import config 
-from servidor.data_managers.data_manager import DataManager
-from servidor.data_managers.chromadb_manager import ChromaDBManager
-from servidor.data_managers.neo4j_manager import Neo4jManager
+from src.database.sqlite_manager import SqliteManager
+from src.database.chromadb_manager import ChromaDBManager
+from src.database.neo4j_manager import Neo4jManager
 
 class DatabaseSynchronizer:
     """
@@ -31,7 +31,7 @@ class DatabaseSynchronizer:
     def _initialize_managers(self):
         """Inicializa os gestores de banco de dados quando necessário."""
         if self.data_manager is None:
-            self.data_manager = DataManager()
+            self.data_manager = SqliteManager()
         if self.chroma_manager is None:
             # A inicialização do ChromaDB agora é silenciosa por padrão
             self.chroma_manager = ChromaDBManager() # CORREÇÃO: Removido o argumento 'verbose'
