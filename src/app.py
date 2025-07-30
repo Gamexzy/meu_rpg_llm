@@ -2,7 +2,6 @@
 import logging
 import os
 import sys
-import traceback
 import re
 import sqlite3
 import uuid
@@ -12,13 +11,8 @@ from functools import wraps
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from passlib.context import CryptContext
-
-# Adiciona o diretório raiz do projeto ao sys.path
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(PROJECT_ROOT)
-
 from src import config
-from scripts.build_world import setup_session_database
+from scripts.build_world import setup_session_database  
 from src.database.sqlite_manager import SqliteManager
 from src.database.chromadb_manager import ChromaDBManager
 from src.database.neo4j_manager import Neo4jManager
@@ -28,12 +22,17 @@ from src.engine.game_engine import GameEngine
 from src.utils.request_logger import log_request
 from src.utils.logging_config import setup_logging
 
+# Adiciona o diretório raiz do projeto ao sys.path
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
+
 # --- INICIALIZAÇÃO DO LOGGING ---
+# Deve ser chamado antes de qualquer outra coisa para garantir que tudo seja logado corretamente.
 setup_logging()
 
 # --- CONFIGURAÇÃO DE VERSÃO ---
-SERVER_VERSION = "1.9.0" # Trocado para autenticação com username/password
-MINIMUM_CLIENT_VERSION = "1.5" # A versão do cliente também precisa ser atualizada
+SERVER_VERSION = "1.10.0" # Adicionado logging de requisições por usuário.
+MINIMUM_CLIENT_VERSION = "1.5"
 
 # --- INICIALIZAÇÃO DE CRIPTOGRAFIA ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -64,31 +63,51 @@ def close_central_db(e=None):
         db.close()
 
 
-# --- DECORADOR DE AUTENTICAÇÃO ---
+# --- MIDDLEWARE E DECORADORES ---
+
+@app.before_request
+def set_user_id_for_logging():
+    """
+    Antes de cada requisição, tenta extrair o user_id do token JWT
+    e o armazena no objeto `g` para ser usado pelo logger.
+    Não bloqueia a requisição se o token for inválido ou ausente.
+    """
+    g.user_id = None  # Usado pelo logger
+    g.current_user_id = None # Usado pela lógica de autorização
+    token = None
+    if 'Authorization' in request.headers:
+        try:
+            token = request.headers['Authorization'].split(" ")[1]
+            data = jwt.decode(token, config.JWT_SECRET_KEY, algorithms=["HS256"])
+            # Define o user_id para o logger e para a autorização da rota
+            g.user_id = data.get('user_id')
+            g.current_user_id = g.user_id
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, IndexError):
+            # O token é inválido ou ausente, mas não há problema.
+            # A rota protegida irá barrar o acesso se necessário.
+            # Para o logger, apenas significa que este log não terá um user_id.
+            pass
 
 def token_required(f):
+    """
+    Decorador que verifica se um token válido foi processado pelo
+    middleware @app.before_request.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        if 'Authorization' in request.headers:
-            try:
-                token = request.headers['Authorization'].split(" ")[1]
-            except IndexError:
-                return jsonify({"error": "Estrutura do token inválida. Use 'Bearer <token>'."}), 401
-
-        if not token:
-            return jsonify({"error": "Token de autenticação não fornecido."}), 401
-
-        try:
-            data = jwt.decode(token, config.JWT_SECRET_KEY, algorithms=["HS256"])
-            g.current_user_id = data['user_id']
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "O token expirou. Por favor, faça login novamente."}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Token inválido."}), 401
-
+        if not g.current_user_id:
+            return jsonify({"error": "Token de autenticação ausente ou inválido."}), 401
         return f(*args, **kwargs)
     return decorated
+
+@app.after_request
+def after_request_func(response):
+    """
+    Registra os detalhes da requisição após ela ser concluída.
+    """
+    if config.ENABLE_REQUEST_LOGGING:
+        log_request(response)
+    return response
 
 
 # --- LÓGICA DE MOTOR DE JOGO (sem alterações) ---
@@ -109,10 +128,12 @@ def get_or_create_game_engine(session_name: str):
             logging.info(f"Banco de dados para a sessão '{session_name}' criado com sucesso.")
         except Exception as e:
             logging.critical(f"ERRO CRÍTICO ao criar o banco de dados da sessão '{session_name}': {e}", exc_info=True)
-            if os.path.exists(db_path): os.remove(db_path)
+            if os.path.exists(db_path):
+                os.remove(db_path)
             raise
         finally:
-            if conn: conn.close()
+            if conn:
+                conn.close()
 
     logging.info(f"--- INICIANDO NOVA INSTÂNCIA DE JOGO PARA A SESSÃO: {session_name} ---")
 
@@ -132,13 +153,7 @@ def sanitize_session_name(name: str) -> str:
     return name[:50] or "personagem_sem_nome"
 
 
-# --- MIDDLEWARE E ENDPOINTS DA API ---
-
-@app.after_request
-def after_request_func(response):
-    if config.ENABLE_REQUEST_LOGGING:
-        log_request(response)
-    return response
+# --- ENDPOINTS DA API ---
 
 @app.route('/status', methods=['GET'])
 def get_status():
@@ -279,6 +294,7 @@ def create_session():
         return jsonify({"error": "Erro ao criar sessão."}), 500
 
 def check_session_ownership(session_name):
+    """Verifica se a saga pertence ao usuário autenticado."""
     db = get_central_db()
     cursor = db.cursor()
     cursor.execute(

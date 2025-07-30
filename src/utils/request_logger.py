@@ -1,15 +1,16 @@
-# servidor/utils/request_logger.py
+# src/utils/request_logger.py
 import logging
-import json
-from flask import request
+from flask import request, g
+from src.utils.logging_config import get_user_logger
 
-request_logger = logging.getLogger(__name__)
+# O logger raiz será usado se não houver um user_id
+system_logger = logging.getLogger('api_requests')
 
 def log_request(response):
     """
     Cria um dicionário com os detalhes da requisição/resposta e o envia
-    para o sistema de logging central.
-    Versão: 3.0.0 - Passa um dicionário em vez de string JSON.
+    para o logger apropriado (do usuário ou do sistema).
+    Versão: 4.0.0 - Direciona logs para arquivos de usuário.
     """
     try:
         response_data = response.get_json(silent=True)
@@ -23,7 +24,6 @@ def log_request(response):
     except Exception:
         request_data = "Corpo da requisição não-JSON ou erro na leitura."
 
-    # Este é o dicionário que será enviado para o logger
     log_entry = {
         "type": "HTTP_REQUEST",
         "remote_addr": request.remote_addr,
@@ -34,7 +34,16 @@ def log_request(response):
         "response_body": response_data,
     }
 
-    # Passamos o dicionário diretamente. O JsonFormatter saberá como lidar com ele.
-    request_logger.info(log_entry)
+    # Verifica se o user_id foi definido no contexto da requisição (g)
+    user_id = getattr(g, 'user_id', None)
 
+    if user_id:
+        # Usa o logger específico do usuário
+        user_logger = get_user_logger(user_id)
+        user_logger.info(log_entry)
+    else:
+        # Se não houver user_id, usa o logger do sistema
+        # A mensagem irá para system.log e para o console
+        system_logger.info(log_entry)
+    
     return response

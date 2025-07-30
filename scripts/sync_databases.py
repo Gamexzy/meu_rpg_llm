@@ -2,16 +2,15 @@ import os
 import sys
 import asyncio
 import shutil
+from src import config 
+from src.database.sqlite_manager import SqliteManager
+from src.database.chromadb_manager import ChromaDBManager
+from src.database.neo4j_manager import Neo4jManager
 
 # Adiciona o diretório raiz do projeto (meu_rpg_llm) ao sys.path
 # Isso garante que todos os módulos possam ser importados de forma consistente
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
-
-from src import config 
-from src.database.sqlite_manager import SqliteManager
-from src.database.chromadb_manager import ChromaDBManager
-from src.database.neo4j_manager import Neo4jManager
 
 class DatabaseSynchronizer:
     """
@@ -45,7 +44,7 @@ class DatabaseSynchronizer:
         
         all_data = {}
         tables_to_export = [
-            'locais', 'elementos_universais', 'personagens', 'faccoes', 
+            'locais', 'elementos_universais', 'personagens', 'faccoes',
             'jogador', 'jogador_habilidades', 'jogador_conhecimentos', 
             'jogador_posses', 'jogador_status_fisico_emocional', 'jogador_logs_memoria',
             'local_elementos', 'locais_acessos_diretos', 'relacoes_entidades'
@@ -53,8 +52,8 @@ class DatabaseSynchronizer:
 
         for table_name in tables_to_export:
             all_data[table_name] = self.data_manager.get_all_entities_from_table(table_name)
-        
-        print(f"INFO: Dados recolhidos do SQLite.")
+
+        print("INFO: Dados recolhidos do SQLite. Total de tabelas")
         return all_data
 
     async def sync_all_databases(self):
@@ -75,27 +74,30 @@ class DatabaseSynchronizer:
     async def reset_all_databases(self):
         """Executa um reset completo de todos os bancos de dados."""
         print("\n!!! ATENÇÃO: INICIANDO RESET COMPLETO DE TODOS OS BANCOS DE DADOS !!!")
-        
-        if os.path.exists(config.DB_PATH_SQLITE):
-            os.remove(config.DB_PATH_SQLITE)
-            print(f"INFO: Arquivo SQLite deletado.")
+        # Remove todos os arquivos .db do diretório de produção, exceto o central.db
+        for filename in os.listdir(config.PROD_DATA_DIR):
+            if filename.endswith(".db") and filename != "central.db":
+                file_path = os.path.join(config.PROD_DATA_DIR, filename)
+                os.remove(file_path)
+                print(f"INFO: Arquivo de sessão '{filename}' deletado.")
 
         if os.path.exists(config.CHROMA_PATH):
             shutil.rmtree(config.CHROMA_PATH)
-            print(f"INFO: Diretório ChromaDB deletado.")
+            print("INFO: Diretório ChromaDB deletado.")
 
         print("INFO: Limpando banco de dados Neo4j...")
         try:
-            if self.neo4j_manager is None: self.neo4j_manager = Neo4jManager()
+            if self.neo4j_manager is None:
+                self.neo4j_manager = Neo4jManager()
             with self.neo4j_manager.driver.session() as session:
                 session.run("MATCH (n) DETACH DELETE n")
             print("INFO: Neo4j limpo com sucesso.")
         except Exception as e:
             print(f"AVISO: Falha ao limpar Neo4j (pode não estar a correr): {e}")
 
-        print(f"\nINFO: Recriando o esquema do DB...")
+        print("\nINFO: Recriando o esquema do DB...")
         build_script_path = os.path.join(config.BASE_DIR, 'scripts', 'build_world.py')
-        os.system(f'python "{build_script_path}"')
+        os.system(f'python "{build_script_path}" --target central') # Recria apenas o DB central por enquanto
         
         print("\n--- RESET COMPLETO DE BANCOS DE DADOS CONCLUÍDO ---")
 

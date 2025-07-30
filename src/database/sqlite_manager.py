@@ -133,7 +133,8 @@ class SqliteManager:
                     player_canonical_id = player_res['id_canonico']
                 
                 player_info = self.get_entity_details_by_canonical_id('jogador', player_canonical_id)
-                if not player_info: return None
+                if not player_info:
+                    return None
                 player_db_id = player_info['id']
 
                 query_local = "SELECT l.id as local_id, l.id_canonico as local_id_canonico, l.nome as local_nome, l.tipo as local_tipo FROM locais l WHERE l.id = ?"
@@ -272,7 +273,9 @@ class SqliteManager:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
-            if not player_res: return False
+            if not player_res:
+                print(f"ERRO: Jogador '{jogador_id_canonico}' não encontrado. Habilidade não pode ser adicionada.")
+                return False
             player_db_id = player_res['id']
             cursor.execute("INSERT OR IGNORE INTO jogador_habilidades (jogador_id, categoria, nome, nivel_subnivel, observacoes) VALUES (?, ?, ?, ?, ?)",
                            (player_db_id, categoria, nome, nivel_subnivel, observacoes))
@@ -285,7 +288,9 @@ class SqliteManager:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
-            if not player_res: return False
+            if not player_res:
+                print(f"ERRO: Jogador '{jogador_id_canonico}' não encontrado. Conhecimento não pode ser adicionado.")
+                return False
             player_db_id = player_res['id']
             cursor.execute("INSERT OR IGNORE INTO jogador_conhecimentos (jogador_id, categoria, nome, nivel, descricao) VALUES (?, ?, ?, ?, ?)",
                            (player_db_id, categoria, nome, nivel, descricao))
@@ -302,8 +307,10 @@ class SqliteManager:
             if existing:
                 return existing['id']
 
-            player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico)
-            if not player_res: return None
+            player_res = self.get_entity_details_by_canonical_id('jogador', jogador_id_canonico) # type: ignore
+            if not player_res:
+                print(f"ERRO: Jogador '{jogador_id_canonico}' não encontrado. Posse não pode ser adicionada.")
+                return None
             player_db_id = player_res['id']
             
             perfil_json_str = json.dumps(perfil_json_data, ensure_ascii=False) if perfil_json_data else None

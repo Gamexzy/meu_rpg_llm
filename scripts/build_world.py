@@ -4,11 +4,10 @@ import os
 import sys
 import argparse
 import traceback
-
+from src import config
 # Adiciona o diretório raiz do projeto ao sys.path para que os módulos, como 'config', possam ser importados
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
-from src import config
 
 # --- FUNÇÕES DE SCHEMA PARA SESSÃO DE JOGO ---
 
@@ -141,17 +140,18 @@ def main():
 
     if args.target == 'central':
         db_path = config.DB_PATH_CENTRAL
-        print(f"\n--- Iniciando a construção do banco de dados CENTRAL ---")
+        print("\n--- Iniciando a construção do banco de dados CENTRAL ---")
         print(f"Local do arquivo: {db_path}")
         try:
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             setup_central_database(cursor)
             conn.commit()
-            print(f"\n--- Estrutura do DB Central (v13.1.0) Verificada/Criada com Sucesso ---")
+            print("\n--- Estrutura do DB Central (v13.1.0) Verificada/Criada com Sucesso ---")
 
         except Exception as e:
-            if conn: conn.rollback()
+            if conn:
+                conn.rollback()
             traceback.print_exc()
             print(f"\nERRO: A criação da estrutura do DB Central falhou. Erro: {e}")
 
@@ -167,11 +167,12 @@ def main():
             cursor = conn.cursor()
             setup_session_database(cursor)
             conn.commit()
-            print(f"\n--- Estrutura do Mundo (v13.1.0) Verificada/Criada com Sucesso ---")
+            print("\n--- Estrutura do Mundo (v13.1.0) Verificada/Criada com Sucesso ---")
             print(f"O arquivo '{db_path}' está pronto para uso.")
 
         except Exception as e:
-            if conn: conn.rollback()
+            if conn:
+                conn.rollback()
             traceback.print_exc()
             print(f"\nERRO: A criação da estrutura do mundo para a sessão '{args.session_name}' falhou. Erro: {e}")
 

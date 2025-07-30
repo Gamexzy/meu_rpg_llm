@@ -1,7 +1,6 @@
 # servidor/engine/tool_processor.py
 import inspect
 import json
-import traceback
 import logging
 from typing import List, Dict, Tuple
 from langchain_core.tools import BaseTool

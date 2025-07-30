@@ -1,6 +1,5 @@
 # servidor/engine/context_builder.py
 import json
-from src import config
 from src.database.sqlite_manager import SqliteManager
 from src.database.chromadb_manager import ChromaDBManager
 
