@@ -6,11 +6,11 @@ import re
 import sqlite3
 import uuid
 import jwt
+import bcrypt
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
-from passlib.context import CryptContext
 import config
 from scripts.build_world import setup_session_database  
 from src.database.sqlite_manager import SqliteManager
@@ -22,18 +22,13 @@ from src.engine.game_engine import GameEngine
 from src.utils.request_logger import log_request
 from src.utils.logging_config import setup_logging
 
-
-
 # --- INICIALIZAÇÃO DO LOGGING ---
 # Deve ser chamado antes de qualquer outra coisa para garantir que tudo seja logado corretamente.
 setup_logging()
 
 # --- CONFIGURAÇÃO DE VERSÃO ---
-SERVER_VERSION = "1.10.0" # Adicionado logging de requisições por usuário.
+SERVER_VERSION = "1.10.1" # Corrigido o sistema de hash de senha para usar bcrypt diretamente.
 MINIMUM_CLIENT_VERSION = "1.5"
-
-# --- INICIALIZAÇÃO DE CRIPTOGRAFIA ---
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # --- GERENCIADOR DE SESSÕES ---
 active_game_engines = {}
@@ -180,7 +175,11 @@ def register():
     if cursor.fetchone():
         return jsonify({"error": "Este nome de usuário já existe."}), 409
 
-    password_hash = pwd_context.hash(password)
+    # Gera o hash da senha usando bcrypt diretamente
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    password_hash = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+
     try:
         cursor.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
         db.commit()
@@ -208,7 +207,14 @@ def login():
     cursor.execute("SELECT id, password_hash FROM usuarios WHERE username = ?", (username,))
     user = cursor.fetchone()
 
-    if not user or not pwd_context.verify(password, user['password_hash']):
+    # Verifica a senha usando bcrypt diretamente
+    if not user:
+        return jsonify({"error": "Credenciais inválidas."}), 401
+    
+    stored_hash_bytes = user['password_hash'].encode('utf-8')
+    password_bytes = password.encode('utf-8')
+
+    if not bcrypt.checkpw(password_bytes, stored_hash_bytes):
         return jsonify({"error": "Credenciais inválidas."}), 401
 
     user_id = user['id']
