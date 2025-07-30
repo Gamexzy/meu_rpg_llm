@@ -1,7 +1,7 @@
-# servidor/main.py
+# src/app.py
+
 import logging
 import os
-import sys
 import re
 import sqlite3
 import uuid
@@ -11,7 +11,7 @@ from functools import wraps
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from passlib.context import CryptContext
-from src import config
+import config
 from scripts.build_world import setup_session_database  
 from src.database.sqlite_manager import SqliteManager
 from src.database.chromadb_manager import ChromaDBManager
@@ -22,9 +22,7 @@ from src.engine.game_engine import GameEngine
 from src.utils.request_logger import log_request
 from src.utils.logging_config import setup_logging
 
-# Adiciona o diretório raiz do projeto ao sys.path
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(PROJECT_ROOT)
+
 
 # --- INICIALIZAÇÃO DO LOGGING ---
 # Deve ser chamado antes de qualquer outra coisa para garantir que tudo seja logado corretamente.
@@ -340,7 +338,7 @@ def get_game_state_route(session_name: str):
 if __name__ == '__main__':
     if not os.path.exists(config.DB_PATH_CENTRAL):
         logging.warning("Banco de dados central não encontrado. Criando agora...")
-        os.system(f'python "{os.path.join(PROJECT_ROOT, "scripts", "build_world.py")}" --target central')
+        os.system(f'python "{os.path.join("scripts", "build_world.py")}" --target central')
 
     logging.info("===========================================")
     logging.info(f"=    SERVIDOR DE SAGAS (v{SERVER_VERSION})    =")

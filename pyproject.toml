@@ -1,0 +1,39 @@
+[project]
+name = "meu_rpg_llm" # O nome do seu pacote
+version = "0.1.0" # A versão inicial do seu pacote
+description = "Um RPG de texto expansível e ilimitado impulsionado por LLMs."
+authors = [
+  { name = "Gabriel Oliveira", email = "gabrielsilverio724@gmail.com" }, # Ajuste com suas informações
+]
+dependencies = [
+    # Liste aqui as dependências do seu requirements.txt
+    "Flask", # Framework web
+    "Flask-Cors", # Lida com CORS para o Flask
+    "SQLAlchemy", # ORM para interagir com bancos de dados SQL
+    "chromadb", # Banco de dados de vetores
+    "google-generativeai", # SDK do Google para modelos generativos
+    "langchain", # Framework para desenvolvimento de aplicações com LLMs
+    "langchain-google-genai", # Integração do LangChain com os modelos do Google
+    "neo4j", # Driver para o banco de dados de grafos Neo4j
+    "pandas", # Manipulação e análise de dados
+    "passlib[bcrypt]", # Para hashing de senhas
+    "python-dotenv", # Carrega variáveis de ambiente de arquivos .env
+    "PyMuPDF", # Para extrair texto e dados de PDFs
+    "PyYAML", # Para ler e escrever arquivos YAML
+    "requests", # Para fazer requisições HTTP
+    "scikit-learn", # Ferramentas de machine learning
+    "sentence-transformers", # Para criar embeddings de sentenças
+    "torch", # Framework de machine learning (dependência de sentence-transformers)
+    "transformers", # Da Hugging Face, para trabalhar com modelos de transformers
+    "uvicorn", # Servidor web ASGI
+]
+requires-python = ">=3.9" # A versão mínima do Python que seu projeto suporta
+
+[build-system]
+requires = ["setuptools>=61.0"] # Ferramenta de build
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."] # Onde procurar por pacotes (a partir da raiz do projeto)
+include = ["src*", "scripts*"] # Inclui 'src' e 'scripts' como pacotes/subpacotes
+namespaces = false # Geralmente é false para a maioria dos projetos
