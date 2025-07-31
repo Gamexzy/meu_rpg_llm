@@ -5,8 +5,7 @@ from pydantic import BaseModel, Field
 from typing import Dict, Optional
 from src import config
 
-# --- Modelos Pydantic para Validação de Argumentos das Ferramentas ---
-
+# --- Modelos Pydantic (sem alterações) ---
 class AddOrGetEntityArgs(BaseModel):
     session_name: str = Field(description="O nome da sessão de jogo atual.")
     entity_type: str = Field(description="O tipo/label da entidade (ex: 'Local', 'Personagem').")
@@ -23,7 +22,7 @@ class AddRelationshipArgs(BaseModel):
 class Neo4jManager:
     """
     Gere a interação com a base de dados de grafos Neo4j.
-    Versão: 5.0.0 - Refatorado para máxima compatibilidade com LangChain, com assinaturas de função explícitas.
+    Versão: 5.1.0 - Adicionado método para apagar todos os dados de uma sessão.
     """
     def __init__(self):
         self._driver = None
@@ -47,22 +46,34 @@ class Neo4jManager:
         """Garante que as restrições de unicidade compostas existam."""
         with self._driver.session() as session:
             try:
-                # Restrição genérica para todas as entidades
                 constraint_name = "constraint_unique_entity_id_session"
                 session.run(f"CREATE CONSTRAINT {constraint_name} IF NOT EXISTS FOR (n:Entidade) REQUIRE (n.id_canonico, n.session) IS UNIQUE")
                 print("INFO: Restrições de unicidade do Neo4j verificadas/criadas.")
             except Exception as e:
                 print(f"AVISO: Não foi possível criar/verificar as restrições no Neo4j. Erro: {e}")
 
+    # --- NOVA FUNÇÃO ---
+    def delete_session_data(self, session_name: str) -> bool:
+        """Apaga todos os nós e relações associados a uma sessão específica."""
+        with self._driver.session() as session:
+            try:
+                # DETACH DELETE apaga os nós e todas as suas relações
+                query = "MATCH (n {session: $session_name}) DETACH DELETE n"
+                result = session.run(query, session_name=session_name)
+                summary = result.consume()
+                print(f"INFO: Dados da sessão '{session_name}' apagados do Neo4j. Nós apagados: {summary.counters.nodes_deleted}.")
+                return True
+            except Exception as e:
+                print(f"ERRO: Falha ao apagar dados da sessão '{session_name}' do Neo4j: {e}")
+                return False
+
     @tool(args_schema=AddOrGetEntityArgs)
     def add_or_get_entity(self, session_name: str, entity_type: str, id_canonico: str, properties: dict) -> Dict:
         """Cria ou obtém um nó de entidade (como Local, Personagem) no grafo para uma sessão específica."""
         with self._driver.session() as session:
-            # Garante que as propriedades básicas estão presentes
             properties['id_canonico'] = id_canonico
             properties['session'] = session_name
             
-            # A query agora usa a etiqueta :Entidade para a restrição e depois adiciona a etiqueta específica
             query = f"""
             MERGE (n:Entidade {{id_canonico: $id_canonico, session: $session_name}})
             ON CREATE SET n += $props, n:{entity_type}
@@ -85,5 +96,4 @@ class Neo4jManager:
             """
             result = session.run(query, from_id=from_node_id, to_id=to_node_id, session_name=session_name, props=properties or {})
             
-            # Retorna True se a query foi bem-sucedida e encontrou/criou uma relação
             return result.single() is not None

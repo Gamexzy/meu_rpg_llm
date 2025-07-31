@@ -9,7 +9,6 @@ from typing import Optional, Dict, List
 from src import config
 
 # --- Modelos Pydantic para Validação de Argumentos das Ferramentas ---
-
 class AddOrGetLocationArgs(BaseModel):
     id_canonico: str = Field(description="ID canónico único do local (ex: 'estacao_alfa', 'planeta_gaia').")
     nome: str = Field(description="Nome legível do local.")
@@ -49,21 +48,22 @@ class AddLogMemoryArgs(BaseModel):
     tipo: str = Field(description="Tipo de log (ex: 'log_evento', 'memoria_consolidada').")
     conteudo: str = Field(description="Conteúdo do log ou memória.")
 
+
 class SqliteManager:
     """
     Gere todas as interações com a base de dados SQLite para uma sessão de jogo específica.
-    Versão: 9.0.0 - Refatorado para máxima compatibilidade com LangChain, com assinaturas de função explícitas.
+    Versão: 9.2.0 - Adicionadas docstrings obrigatórias para as ferramentas LangChain.
     """
     def __init__(self, session_name: str, supress_success_message=False):
         os.makedirs(config.PROD_DATA_DIR, exist_ok=True)
         self.db_path = os.path.join(config.PROD_DATA_DIR, f"{session_name}.db")
         self.session_name = session_name
-        if not os.path.exists(self.db_path):
-            raise FileNotFoundError(f"A base de dados para a sessão '{session_name}' não foi encontrada.")
-        if not supress_success_message:
-            print(f"DataManager v9.0.0 conectado com sucesso à sessão: {self.session_name} ({self.db_path})")
+        if not supress_success_message and os.path.exists(self.db_path):
+            print(f"DataManager v9.2.0 conectado com sucesso à sessão: {self.session_name} ({self.db_path})")
 
     def _get_connection(self):
+        if not os.path.exists(self.db_path):
+             raise FileNotFoundError(f"A base de dados para a sessão '{self.session_name}' não foi encontrada.")
         try:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -73,10 +73,22 @@ class SqliteManager:
             print(f"Erro ao conectar ao banco de dados SQLite '{self.db_path}': {e}")
             raise
 
-    # --- Funções de Leitura Internas ---
+    def delete_database_file(self) -> bool:
+        """Apaga fisicamente o ficheiro .db da sessão do disco."""
+        try:
+            if os.path.exists(self.db_path):
+                os.remove(self.db_path)
+                print(f"INFO: Ficheiro da base de dados '{self.db_path}' apagado com sucesso.")
+                return True
+            else:
+                print(f"AVISO: Ficheiro da base de dados '{self.db_path}' não encontrado para apagar.")
+                return False
+        except OSError as e:
+            print(f"ERRO: Falha ao apagar o ficheiro da base de dados '{self.db_path}': {e}")
+            return False
 
+    # --- Funções de Leitura Internas ---
     def get_entity_details_by_canonical_id(self, table_name: str, canonical_id: str) -> Optional[Dict]:
-        # ... (código existente sem alterações)
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -97,7 +109,6 @@ class SqliteManager:
             return None
 
     def get_all_entities_from_table(self, table_name: str) -> List[Dict]:
-        # ... (código existente sem alterações)
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -106,7 +117,7 @@ class SqliteManager:
                     'jogador_habilidades', 'jogador_conhecimentos', 'jogador_posses',
                     'jogador_status_fisico_emocional', 'jogador_logs_memoria',
                     'local_elementos', 'locais_acessos_diretos', 'relacoes_entidades', 'itens',
-                    'sagas' # Adicionado para buscar o conceito do mundo
+                    'sagas'
                 ]
                 if table_name not in tabelas_validas:
                     raise ValueError(f"Nome de tabela inválido para exportação: '{table_name}'.")
@@ -119,7 +130,6 @@ class SqliteManager:
             return []
     
     def get_player_full_status(self, player_canonical_id: Optional[str] = None) -> Optional[Dict]:
-        # ... (código existente sem alterações)
         player_status = {}
         try:
             with self._get_connection() as conn:
@@ -165,7 +175,6 @@ class SqliteManager:
             return None
 
     def get_ancestors(self, local_id_numeric: int) -> List[Dict]:
-        # ... (código existente sem alterações)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             query = """
@@ -183,7 +192,6 @@ class SqliteManager:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_children(self, local_id_numeric: int) -> List[Dict]:
-        # ... (código existente sem alterações)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             query = "SELECT l.id, l.id_canonico, l.nome, l.tipo FROM locais l WHERE l.parent_id = ?;"
@@ -191,7 +199,6 @@ class SqliteManager:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_direct_accesses(self, local_id_numeric: int) -> List[Dict]:
-        # ... (código existente sem alterações)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             query = """
@@ -204,7 +211,6 @@ class SqliteManager:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_siblings(self, local_id_numeric: int) -> List[Dict]:
-        # ... (código existente sem alterações)
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT parent_id FROM locais WHERE id = ?", (local_id_numeric,))
@@ -217,7 +223,6 @@ class SqliteManager:
             return [dict(row) for row in cursor.fetchall()]
 
     # --- FERRAMENTAS (WRITE) EXPOSTAS PARA O LLM ---
-
     @tool(args_schema=AddOrGetLocationArgs)
     def add_or_get_location(self, id_canonico: str, nome: str, tipo: str, perfil_json_data: Optional[Dict] = None, parent_id_canonico: Optional[str] = None) -> int:
         """Cria um novo local (planeta, estação, sala) ou obtém o ID de um local existente."""
@@ -261,7 +266,6 @@ class SqliteManager:
             cursor.execute("INSERT INTO jogador (id_canonico, nome, local_atual_id, perfil_completo_json) VALUES (?, ?, ?, ?)",
                            (id_canonico, nome, local_inicial_id_numerico, perfil_json_str))
             
-            # Guarda o conceito do mundo na tabela 'sagas'
             cursor.execute("INSERT INTO sagas (session_name, player_name, world_concept) VALUES (?, ?, ?)",
                            (self.session_name, nome, world_concept))
             conn.commit()

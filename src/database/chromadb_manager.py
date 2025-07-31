@@ -8,8 +8,7 @@ from pydantic import BaseModel, Field
 from typing import List
 from src import config
 
-# --- Modelos Pydantic para Validação de Argumentos das Ferramentas ---
-
+# --- Modelos Pydantic (sem alterações) ---
 class AddOrUpdateLoreArgs(BaseModel):
     id_canonico: str = Field(description="O ID canónico da ENTIDADE PRINCIPAL que está a ser descrita (ex: 'planeta_cygnus_prime').")
     text_content: str = Field(description="O texto COMPLETO e CONSOLIDADO do fragmento de lore a ser armazenado e vetorizado.")
@@ -19,13 +18,12 @@ class AddOrUpdateLoreArgs(BaseModel):
 class ChromaDBManager:
     """
     Gere a interação com o banco de dados vetorial ChromaDB.
-    Versão: 5.1.0 - Corrigido para ser uma instância única (singleton) e receber o session_name nos métodos.
+    Versão: 5.2.0 - Adicionado método para apagar uma coleção de sessão.
     """
     _model = None
     _client = None
 
     def __init__(self):
-        # Esta classe agora é um singleton e não recebe argumentos na inicialização.
         if ChromaDBManager._model is None:
             print("INFO: Loading local embedding model: all-MiniLM-L6-v2")
             ChromaDBManager._model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -37,22 +35,40 @@ class ChromaDBManager:
             ChromaDBManager._client = chromadb.PersistentClient(path=db_path)
             print(f"INFO: ChromaDBManager connected successfully to Pillar A at: {db_path}")
 
+    def _sanitize_collection_name(self, session_name: str) -> str:
+        """Sanitiza o nome da sessão para ser um nome de coleção válido."""
+        safe_collection_name = "".join(c for c in session_name if c.isalnum() or c in ('_', '-'))
+        return safe_collection_name[:63]
+
     def get_collection(self, session_name: str):
         """Obtém ou cria uma coleção para uma sessão específica."""
-        # Sanitiza o nome da coleção para conformidade com o ChromaDB
-        safe_collection_name = "".join(c for c in session_name if c.isalnum() or c in ('_', '-'))
-        safe_collection_name = safe_collection_name[:63] # Limita o comprimento
-
+        safe_collection_name = self._sanitize_collection_name(session_name)
         return self._client.get_or_create_collection(
             name=safe_collection_name,
             metadata={"hnsw:space": "cosine"}
         )
 
+    # --- NOVA FUNÇÃO ---
+    def delete_collection(self, session_name: str) -> bool:
+        """Apaga a coleção inteira associada a uma sessão."""
+        try:
+            safe_collection_name = self._sanitize_collection_name(session_name)
+            # Verifica se a coleção existe antes de tentar apagar
+            collections = self._client.list_collections()
+            if any(c.name == safe_collection_name for c in collections):
+                self._client.delete_collection(name=safe_collection_name)
+                print(f"INFO: Coleção '{safe_collection_name}' apagada do ChromaDB.")
+            else:
+                print(f"AVISO: Coleção '{safe_collection_name}' não encontrada no ChromaDB para apagar.")
+            return True
+        except Exception as e:
+            print(f"ERRO: Falha ao apagar a coleção '{safe_collection_name}' do ChromaDB: {e}")
+            return False
+
     @tool(args_schema=AddOrUpdateLoreArgs)
     def add_or_update_lore(self, session_name: str, id_canonico: str, text_content: str, metadata: str) -> bool:
         """Adiciona ou atualiza um documento de 'lore' (conhecimento do mundo) para uma entidade específica."""
         try:
-            # CORREÇÃO: Converte a string JSON de metadados em um dicionário Python.
             try:
                 metadata_dict = json.loads(metadata)
             except json.JSONDecodeError:
@@ -64,7 +80,7 @@ class ChromaDBManager:
             collection.upsert(
                 ids=[id_canonico],
                 embeddings=[embedding],
-                metadatas=[metadata_dict], # Usa o dicionário convertido
+                metadatas=[metadata_dict],
                 documents=[text_content]
             )
             print(f"INFO: Lore '{id_canonico}' adicionado/atualizado no ChromaDB para a sessão '{session_name}'.")

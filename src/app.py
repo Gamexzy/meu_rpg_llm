@@ -23,11 +23,10 @@ from src.utils.request_logger import log_request
 from src.utils.logging_config import setup_logging
 
 # --- INICIALIZAÇÃO DO LOGGING ---
-# Deve ser chamado antes de qualquer outra coisa para garantir que tudo seja logado corretamente.
 setup_logging()
 
 # --- CONFIGURAÇÃO DE VERSÃO ---
-SERVER_VERSION = "1.10.1" # Corrigido o sistema de hash de senha para usar bcrypt diretamente.
+SERVER_VERSION = "1.11.0" # Adicionada rota para apagar sagas.
 MINIMUM_CLIENT_VERSION = "1.5"
 
 # --- GERENCIADOR DE SESSÕES ---
@@ -42,7 +41,6 @@ neo4j_manager_singleton = Neo4jManager()
 
 
 # --- FUNÇÕES DE BANCO DE DADOS CENTRAL ---
-
 def get_central_db():
     if 'central_db' not in g:
         g.central_db = sqlite3.connect(config.DB_PATH_CENTRAL)
@@ -57,7 +55,6 @@ def close_central_db(e=None):
 
 
 # --- MIDDLEWARE E DECORADORES ---
-
 @app.before_request
 def set_user_id_for_logging():
     """
@@ -72,13 +69,9 @@ def set_user_id_for_logging():
         try:
             token = request.headers['Authorization'].split(" ")[1]
             data = jwt.decode(token, config.JWT_SECRET_KEY, algorithms=["HS256"])
-            # Define o user_id para o logger e para a autorização da rota
             g.user_id = data.get('user_id')
             g.current_user_id = g.user_id
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, IndexError):
-            # O token é inválido ou ausente, mas não há problema.
-            # A rota protegida irá barrar o acesso se necessário.
-            # Para o logger, apenas significa que este log não terá um user_id.
             pass
 
 def token_required(f):
@@ -95,16 +88,12 @@ def token_required(f):
 
 @app.after_request
 def after_request_func(response):
-    """
-    Registra os detalhes da requisição após ela ser concluída.
-    """
     if config.ENABLE_REQUEST_LOGGING:
         log_request(response)
     return response
 
 
-# --- LÓGICA DE MOTOR DE JOGO (sem alterações) ---
-
+# --- LÓGICA DE MOTOR DE JOGO ---
 def get_or_create_game_engine(session_name: str):
     if session_name in active_game_engines:
         return active_game_engines[session_name]
@@ -157,8 +146,7 @@ def get_status():
     })
 
 
-# --- ROTAS DE AUTENTICAÇÃO COM USERNAME/SENHA ---
-
+# --- ROTAS DE AUTENTICAÇÃO ---
 @app.route('/register', methods=['POST'])
 def register():
     """Registra um novo usuário."""
@@ -175,7 +163,6 @@ def register():
     if cursor.fetchone():
         return jsonify({"error": "Este nome de usuário já existe."}), 409
 
-    # Gera o hash da senha usando bcrypt diretamente
     password_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
     password_hash = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
@@ -207,7 +194,6 @@ def login():
     cursor.execute("SELECT id, password_hash FROM usuarios WHERE username = ?", (username,))
     user = cursor.fetchone()
 
-    # Verifica a senha usando bcrypt diretamente
     if not user:
         return jsonify({"error": "Credenciais inválidas."}), 401
     
@@ -228,7 +214,6 @@ def login():
 
 
 # --- ROTAS DE SESSÃO (AUTENTICADAS) ---
-
 @app.route('/sessions', methods=['GET'])
 @token_required
 def get_sessions():
@@ -249,7 +234,6 @@ def get_sessions():
 @app.route('/sessions/create', methods=['POST'])
 @token_required
 def create_session():
-    """Cria uma nova saga para o usuário autenticado."""
     data = request.json
     char_name = data.get('character_name')
     world_concept = data.get('world_concept')
@@ -297,6 +281,49 @@ def create_session():
         db.commit()
         return jsonify({"error": "Erro ao criar sessão."}), 500
 
+# --- ROTA DE EXCLUSÃO ATUALIZADA ---
+@app.route('/sessions/<session_name>', methods=['DELETE'])
+@token_required
+def delete_session_route(session_name: str):
+    """Apaga uma saga e todos os seus dados associados."""
+    if not check_session_ownership(session_name):
+        return jsonify({"error": "Acesso não autorizado a esta saga."}), 403
+
+    try:
+        logging.warning(f"Iniciando exclusão da saga '{session_name}' para o usuário {g.current_user_id}.")
+
+        # --- ORDEM DE OPERAÇÕES CORRIGIDA ---
+
+        # 1. Remover a instância do motor de jogo da memória PRIMEIRO.
+        # Isto liberta qualquer bloqueio no ficheiro da base de dados.
+        if session_name in active_game_engines:
+            del active_game_engines[session_name]
+            logging.info(f"Instância do motor de jogo para '{session_name}' removida da memória.")
+
+        # 2. Apagar dados do Neo4j
+        neo4j_manager_singleton.delete_session_data(session_name)
+
+        # 3. Apagar coleção do ChromaDB
+        chromadb_manager_singleton.delete_collection(session_name)
+
+        # 4. Apagar o ficheiro da base de dados SQLite (agora seguro)
+        temp_sqlite_manager = SqliteManager(session_name, supress_success_message=True)
+        temp_sqlite_manager.delete_database_file()
+
+        # 5. Apagar a entrada da saga na base de dados central
+        db = get_central_db()
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM sagas WHERE session_name = ? AND usuario_id = ?", (session_name, g.current_user_id))
+        db.commit()
+        
+        logging.info(f"Saga '{session_name}' apagada com sucesso.")
+        return jsonify({"message": f"Saga '{session_name}' apagada com sucesso."}), 200
+
+    except Exception as e:
+        logging.error(f"Erro crítico ao apagar a saga '{session_name}': {e}", exc_info=True)
+        return jsonify({"error": "Ocorreu um erro inesperado ao apagar a saga."}), 500
+
+
 def check_session_ownership(session_name):
     """Verifica se a saga pertence ao usuário autenticado."""
     db = get_central_db()
@@ -309,7 +336,6 @@ def check_session_ownership(session_name):
 
 
 # --- ROTAS DE JOGO (AUTENTICADAS) ---
-
 @app.route('/sessions/<session_name>/tools', methods=['GET'])
 @token_required
 def get_contextual_tools_route(session_name: str):
