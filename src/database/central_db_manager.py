@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class CentralDbManager:
     """
     Gerencia o DB central (usuários, universos, personagens, aventuras).
-    Versão: 2.1.0 - Adicionados métodos de gerenciamento de Personagens.
+    Versão: 2.2.0 - Adicionados métodos de gerenciamento de Aventuras.
     """
 
     def __init__(self, db_path: str = config.DB_PATH_CENTRAL):
@@ -90,7 +90,7 @@ class CentralDbManager:
         finally:
             conn.close()
 
-    # --- MÉTODOS DE PERSONAGEM ---
+    # --- Métodos de Personagem ---
     def create_character(self, user_id: int, name: str, background: str, is_traveler: bool) -> int:
         """Cria um novo personagem. Retorna o ID do novo personagem."""
         conn = self._get_connection()
@@ -117,3 +117,68 @@ class CentralDbManager:
             return [dict(row) for row in rows]
         finally:
             conn.close()
+            
+    def get_character_details(self, character_id: int, user_id: int) -> Optional[Dict[str, Any]]:
+        """Busca os detalhes de um personagem, verificando se pertence ao usuário."""
+        conn = self._get_connection()
+        try:
+            row = conn.execute(
+                "SELECT * FROM characters WHERE id = ? AND user_id = ?",
+                (character_id, user_id)
+            ).fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    # --- MÉTODOS DE AVENTURA ---
+    def create_adventure(self, name: str, universe_id: int, db_path: str) -> int:
+        """Cria um novo registro de aventura. Retorna o ID da nova aventura."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute(
+                    "INSERT INTO adventures (name, universe_id, db_path) VALUES (?, ?, ?)",
+                    (name, universe_id, db_path)
+                )
+                adventure_id = cursor.lastrowid
+                logger.info(f"Aventura '{name}' (ID: {adventure_id}) criada no universo {universe_id}.")
+                return adventure_id
+        finally:
+            conn.close()
+
+    def add_character_to_adventure(self, adventure_id: int, character_id: int, user_id: int):
+        """Adiciona um personagem como participante de uma aventura."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    "INSERT INTO adventure_participants (adventure_id, character_id, user_id) VALUES (?, ?, ?)",
+                    (adventure_id, character_id, user_id)
+                )
+                logger.info(f"Personagem {character_id} adicionado à aventura {adventure_id}.")
+        finally:
+            conn.close()
+
+    def lock_traveler_character(self, character_id: int, adventure_id: int):
+        """'Trava' um personagem Viajante em uma aventura ativa."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    "UPDATE characters SET current_adventure_id = ? WHERE id = ?",
+                    (adventure_id, character_id)
+                )
+                logger.info(f"Viajante {character_id} foi 'travado' na aventura {adventure_id}.")
+        finally:
+            conn.close()
+            
+    def update_adventure_db_path(self, adventure_id: int, db_path: str):
+        """Atualiza o caminho do banco de dados de uma aventura."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute("UPDATE adventures SET db_path = ? WHERE id = ?", (db_path, adventure_id))
+            logger.info(f"Caminho do DB para a aventura {adventure_id} atualizado para '{db_path}'.")
+        finally:
+            conn.close()
+

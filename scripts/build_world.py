@@ -8,7 +8,7 @@ from src import config
 # --- FUNÇÕES DE SCHEMA PARA O BANCO DE DADOS CENTRAL ---
 def setup_central_database(cursor):
     """Cria a estrutura completa do DB CENTRAL para gerenciar a arquitetura desacoplada."""
-    print("--- Configurando a Base de Dados Central (v2.1.0) ---")
+    print("--- Configurando a Base de Dados Central (v2.2.0) ---")
     cursor.execute("PRAGMA foreign_keys = ON;")
 
     # Tabela de Usuários
@@ -34,19 +34,7 @@ def setup_central_database(cursor):
         );
     """)
 
-    # Tabela de Aventuras (Sessões de Jogo)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS adventures (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            universe_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            db_path TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (universe_id) REFERENCES universes(id) ON DELETE CASCADE
-        );
-    """)
-
-    # Tabela de Personagens (Atores) - ATUALIZADA
+    # Tabela de Personagens (Atores)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS characters (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,7 +49,20 @@ def setup_central_database(cursor):
         );
     """)
 
-    # Tabela de Junção: Quem participa de qual aventura
+    # Tabela de Aventuras (Sessões de Jogo) - ATUALIZADA
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS adventures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            universe_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            db_path TEXT NOT NULL,
+            is_active BOOLEAN NOT NULL DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (universe_id) REFERENCES universes(id) ON DELETE CASCADE
+        );
+    """)
+
+    # Tabela de Junção: Quem participa de qual aventura - ATUALIZADA
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS adventure_participants (
             adventure_id INTEGER NOT NULL,
@@ -80,7 +81,7 @@ def setup_central_database(cursor):
 def setup_universe_database(cursor):
     """Cria a estrutura de um banco de dados de UNIVERSO (regras e fatos persistentes)."""
     # ... (código existente sem alterações)
-    print("--- Configurando a Base de Dados de Universo (v2.1.0) ---")
+    print("--- Configurando a Base de Dados de Universo (v2.2.0) ---")
     cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS universal_laws (
@@ -104,7 +105,7 @@ def setup_universe_database(cursor):
 # --- FUNÇÕES DE SCHEMA PARA BANCO DE DADOS DE AVENTURA ---
 def setup_adventure_database(cursor):
     """Cria a estrutura de um banco de dados de AVENTURA (estado de jogo contextual)."""
-    print("--- Configurando a Base de Dados de Aventura (v2.1.0) ---")
+    print("--- Configurando a Base de Dados de Aventura (v2.2.0) ---")
     cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS adventure_locations (
@@ -118,7 +119,6 @@ def setup_adventure_database(cursor):
             current_location_id INTEGER,
             hp INTEGER,
             mana INTEGER,
-            FOREIGN KEY (character_id) REFERENCES adventure_participants(character_id),
             FOREIGN KEY (current_location_id) REFERENCES adventure_locations(id)
         );
         CREATE TABLE IF NOT EXISTS character_inventory (
@@ -126,8 +126,7 @@ def setup_adventure_database(cursor):
             character_id INTEGER NOT NULL,
             item_name TEXT NOT NULL,
             quantity INTEGER DEFAULT 1,
-            description TEXT,
-            FOREIGN KEY (character_id) REFERENCES adventure_participants(character_id)
+            description TEXT
         );
     """)
     print("SUCESSO: Base de dados de Aventura configurada.")
@@ -178,7 +177,7 @@ def main():
             cursor = conn.cursor()
             setup_function(cursor)
             conn.commit()
-            print(f"--- Estrutura '{args.target}' (v2.1.0) Verificada/Criada com Sucesso ---")
+            print(f"--- Estrutura '{args.target}' (v2.2.0) Verificada/Criada com Sucesso ---")
         except Exception as e:
             traceback.print_exc()
             print(f"\nERRO na criação do DB '{args.target}': {e}")
