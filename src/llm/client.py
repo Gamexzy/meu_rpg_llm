@@ -1,11 +1,11 @@
 # servidor/llm/client.py
 import traceback
 from typing import List, Tuple
-
 from src import config
 from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 from langchain_core.tools import BaseTool
 from langchain_google_genai import ChatGoogleGenerativeAI
+
 
 
 class LLMClient:

@@ -7,10 +7,6 @@ from src.database.sqlite_manager import SqliteManager
 from src.database.chromadb_manager import ChromaDBManager
 from src.database.neo4j_manager import Neo4jManager
 
-# Adiciona o diretório raiz do projeto (meu_rpg_llm) ao sys.path
-# Isso garante que todos os módulos possam ser importados de forma consistente
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(PROJECT_ROOT)
 
 class DatabaseSynchronizer:
     """
