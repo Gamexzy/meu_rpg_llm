@@ -1,4 +1,4 @@
-# src/database/central_database_manager.py
+# src/database/central_db_manager.py
 import logging
 import sqlite3
 from typing import Any, Dict, List, Optional
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class CentralDbManager:
     """
     Gerencia o DB central (usuários, universos, personagens, aventuras).
-    Versão: 2.0.0 - Refatorado para a arquitetura desacoplada.
+    Versão: 2.1.0 - Adicionados métodos de gerenciamento de Personagens.
     """
 
     def __init__(self, db_path: str = config.DB_PATH_CENTRAL):
@@ -80,11 +80,40 @@ class CentralDbManager:
         finally:
             conn.close()
 
-    def check_universe_ownership(self, user_id: int, universe_id: int) -> bool:
-        """Verifica se um usuário é o dono de um universo."""
+    def update_universe_db_path(self, universe_id: int, db_path: str):
+        """Atualiza o caminho do banco de dados de um universo."""
         conn = self._get_connection()
         try:
-            row = conn.execute("SELECT id FROM universes WHERE id = ? AND user_id = ?", (universe_id, user_id)).fetchone()
-            return row is not None
+            with conn:
+                conn.execute("UPDATE universes SET db_path = ? WHERE id = ?", (db_path, universe_id))
+            logger.info(f"Caminho do DB para o universo {universe_id} atualizado.")
+        finally:
+            conn.close()
+
+    # --- MÉTODOS DE PERSONAGEM ---
+    def create_character(self, user_id: int, name: str, background: str, is_traveler: bool) -> int:
+        """Cria um novo personagem. Retorna o ID do novo personagem."""
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute(
+                    "INSERT INTO characters (user_id, name, background, is_traveler) VALUES (?, ?, ?, ?)",
+                    (user_id, name, background, is_traveler)
+                )
+                char_id = cursor.lastrowid
+                logger.info(f"Personagem '{name}' (ID: {char_id}) criado para o usuário {user_id}. Viajante: {is_traveler}")
+                return char_id
+        finally:
+            conn.close()
+
+    def get_user_characters(self, user_id: int) -> List[Dict[str, Any]]:
+        """Retorna uma lista de todos os personagens de um usuário."""
+        conn = self._get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT id, name, background, is_traveler, current_adventure_id FROM characters WHERE user_id = ?",
+                (user_id,)
+            ).fetchall()
+            return [dict(row) for row in rows]
         finally:
             conn.close()

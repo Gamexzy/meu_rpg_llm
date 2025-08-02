@@ -8,10 +8,10 @@ from src import config
 # --- FUNÇÕES DE SCHEMA PARA O BANCO DE DADOS CENTRAL ---
 def setup_central_database(cursor):
     """Cria a estrutura completa do DB CENTRAL para gerenciar a arquitetura desacoplada."""
-    print("--- Configurando a Base de Dados Central (v2.0.0) ---")
+    print("--- Configurando a Base de Dados Central (v2.1.0) ---")
     cursor.execute("PRAGMA foreign_keys = ON;")
 
-    # Tabela de Usuários (sem grandes alterações)
+    # Tabela de Usuários
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,18 +34,6 @@ def setup_central_database(cursor):
         );
     """)
 
-    # Tabela de Personagens (Atores)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS characters (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            background TEXT, -- Identidade do personagem
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-    """)
-
     # Tabela de Aventuras (Sessões de Jogo)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS adventures (
@@ -58,12 +46,28 @@ def setup_central_database(cursor):
         );
     """)
 
+    # Tabela de Personagens (Atores) - ATUALIZADA
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS characters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            background TEXT,
+            is_traveler BOOLEAN NOT NULL DEFAULT 0,
+            current_adventure_id INTEGER DEFAULT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (current_adventure_id) REFERENCES adventures(id) ON DELETE SET NULL
+        );
+    """)
+
     # Tabela de Junção: Quem participa de qual aventura
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS adventure_participants (
             adventure_id INTEGER NOT NULL,
             character_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL, -- O dono do personagem
+            user_id INTEGER NOT NULL,
+            role TEXT NOT NULL DEFAULT 'protagonist',
             PRIMARY KEY (adventure_id, character_id),
             FOREIGN KEY (adventure_id) REFERENCES adventures(id) ON DELETE CASCADE,
             FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
@@ -75,7 +79,8 @@ def setup_central_database(cursor):
 # --- FUNÇÕES DE SCHEMA PARA BANCO DE DADOS DE UNIVERSO ---
 def setup_universe_database(cursor):
     """Cria a estrutura de um banco de dados de UNIVERSO (regras e fatos persistentes)."""
-    print("--- Configurando a Base de Dados de Universo (v2.0.0) ---")
+    # ... (código existente sem alterações)
+    print("--- Configurando a Base de Dados de Universo (v2.1.0) ---")
     cursor.execute("PRAGMA foreign_keys = ON;")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS universal_laws (
@@ -99,10 +104,8 @@ def setup_universe_database(cursor):
 # --- FUNÇÕES DE SCHEMA PARA BANCO DE DADOS DE AVENTURA ---
 def setup_adventure_database(cursor):
     """Cria a estrutura de um banco de dados de AVENTURA (estado de jogo contextual)."""
-    print("--- Configurando a Base de Dados de Aventura (v2.0.0) ---")
+    print("--- Configurando a Base de Dados de Aventura (v2.1.0) ---")
     cursor.execute("PRAGMA foreign_keys = ON;")
-    # As tabelas aqui guardam o estado dos personagens DENTRO da aventura.
-    # Note a adição de 'character_id' em todas as tabelas relevantes.
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS adventure_locations (
             id INTEGER PRIMARY KEY,
@@ -166,16 +169,21 @@ def main():
     if db_path and setup_function:
         print(f"\n--- Construindo banco de dados '{args.target}' em {db_path} ---")
         try:
+            # Apaga o banco de dados se for o central para garantir um schema limpo
+            if args.target == "central" and os.path.exists(db_path):
+                print(f"AVISO: Removendo banco de dados central existente em '{db_path}' para recriar o schema.")
+                os.remove(db_path)
+
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             setup_function(cursor)
             conn.commit()
-            print(f"--- Estrutura '{args.target}' (v2.0.0) Verificada/Criada com Sucesso ---")
+            print(f"--- Estrutura '{args.target}' (v2.1.0) Verificada/Criada com Sucesso ---")
         except Exception as e:
             traceback.print_exc()
             print(f"\nERRO na criação do DB '{args.target}': {e}")
         finally:
-            if conn:
+            if 'conn' in locals() and conn:
                 conn.close()
 
 if __name__ == "__main__":

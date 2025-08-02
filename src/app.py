@@ -11,8 +11,8 @@ from src.utils.request_logger import log_request
 
 # --- Importar os Blueprints das Rotas ---
 from src.routes.universes import universes_bp
+from src.routes.characters import characters_bp # NOVO IMPORT
 # Futuramente:
-# from src.routes.characters import characters_bp
 # from src.routes.adventures import adventures_bp
 
 # --- Inicialização ---
@@ -23,8 +23,8 @@ app.config["JWT_SECRET_KEY"] = config.JWT_SECRET_KEY
 
 # --- Registrar os Blueprints na Aplicação ---
 app.register_blueprint(universes_bp, url_prefix='/api')
+app.register_blueprint(characters_bp, url_prefix='/api') # NOVO REGISTRO
 # Futuramente:
-# app.register_blueprint(characters_bp, url_prefix='/api')
 # app.register_blueprint(adventures_bp, url_prefix='/api')
 
 # --- Gerenciadores ---
